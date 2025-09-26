@@ -1,0 +1,298 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  phone             String?  @unique
+  firstName         String
+  lastName          String
+  dateOfBirth       DateTime?
+  gender            Gender?
+  isVerified        Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  lastLoginAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  profile           CustomerProfile?
+  preferences       CustomerPreferences?
+  addresses         CustomerAddress[]
+  bookings          CustomerBooking[]
+  orders            CustomerOrder[]
+  reviews           CustomerReview[]
+  loyaltyPoints     CustomerLoyaltyPoint[]
+  activities        CustomerActivity[]
+  notifications     CustomerNotification[]
+
+  @@map("customers")
+}
+
+model CustomerProfile {
+  id                String   @id @default(cuid())
+  customerId        String   @unique
+  avatar            String?
+  bio               String?
+  preferences       Json?    // Store customer preferences as JSON
+  emergencyContact  String?
+  dietaryRestrictions String?
+  specialRequests   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_profiles")
+}
+
+model CustomerPreferences {
+  id                String   @id @default(cuid())
+  customerId        String   @unique
+  language          String   @default("en")
+  currency          String   @default("USD")
+  timezone          String   @default("UTC")
+  emailNotifications Boolean @default(true)
+  smsNotifications  Boolean @default(false)
+  pushNotifications Boolean @default(true)
+  marketingEmails   Boolean @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_preferences")
+}
+
+model CustomerAddress {
+  id                String   @id @default(cuid())
+  customerId        String
+  type              AddressType @default(HOME)
+  addressLine1      String
+  addressLine2      String?
+  city              String
+  state             String
+  postalCode        String
+  country           String
+  isDefault         Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_addresses")
+}
+
+model CustomerBooking {
+  id                String   @id @default(cuid())
+  customerId        String
+  bookingType       BookingType
+  referenceId       String   // Reference to hotel booking, table booking, or hall booking
+  status            BookingStatus @default(PENDING)
+  bookingDate       DateTime
+  checkInDate       DateTime?
+  checkOutDate      DateTime?
+  totalAmount       Decimal  @db.Decimal(10, 2)
+  paidAmount        Decimal  @default(0) @db.Decimal(10, 2)
+  specialRequests   String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_bookings")
+}
+
+model CustomerOrder {
+  id                String   @id @default(cuid())
+  customerId        String
+  orderType         OrderType
+  referenceId       String   // Reference to food order or delivery order
+  status            OrderStatus @default(PENDING)
+  orderDate         DateTime
+  deliveryDate      DateTime?
+  totalAmount       Decimal  @db.Decimal(10, 2)
+  paidAmount        Decimal  @default(0) @db.Decimal(10, 2)
+  deliveryAddress   String?
+  specialInstructions String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_orders")
+}
+
+model CustomerReview {
+  id                String   @id @default(cuid())
+  customerId        String
+  reviewType        ReviewType
+  referenceId       String   // Reference to hotel room, restaurant, food item, etc.
+  rating            Int      @db.SmallInt
+  title             String?
+  comment           String?
+  isVerified        Boolean  @default(false)
+  isPublic          Boolean  @default(true)
+  helpfulCount      Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_reviews")
+}
+
+model CustomerLoyaltyPoint {
+  id                String   @id @default(cuid())
+  customerId        String
+  points            Int
+  type              LoyaltyPointType
+  description       String
+  referenceId       String?  // Reference to booking, order, or promotion
+  expiresAt         DateTime?
+  isRedeemed        Boolean  @default(false)
+  redeemedAt        DateTime?
+  createdAt         DateTime @default(now())
+
+  // Relations
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_loyalty_points")
+}
+
+model CustomerActivity {
+  id                String   @id @default(cuid())
+  customerId        String
+  activityType      ActivityType
+  description       String
+  metadata          Json?    // Store additional activity data as JSON
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime @default(now())
+
+  // Relations
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_activities")
+}
+
+model CustomerNotification {
+  id                String   @id @default(cuid())
+  customerId        String
+  type              NotificationType
+  title             String
+  message           String
+  isRead            Boolean  @default(false)
+  readAt            DateTime?
+  metadata          Json?    // Store additional notification data as JSON
+  createdAt         DateTime @default(now())
+
+  // Relations
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_notifications")
+}
+
+// Enums
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum AddressType {
+  HOME
+  WORK
+  BILLING
+  SHIPPING
+  OTHER
+}
+
+enum BookingType {
+  HOTEL_ROOM
+  RESTAURANT_TABLE
+  HALL_EVENT
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+enum OrderType {
+  FOOD_DELIVERY
+  RESTAURANT_DINE_IN
+  ROOM_SERVICE
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum ReviewType {
+  HOTEL_ROOM
+  RESTAURANT
+  FOOD_ITEM
+  SERVICE
+  DELIVERY
+}
+
+enum LoyaltyPointType {
+  EARNED
+  REDEEMED
+  EXPIRED
+  BONUS
+  REFERRAL
+}
+
+enum ActivityType {
+  LOGIN
+  LOGOUT
+  PROFILE_UPDATE
+  BOOKING_CREATED
+  ORDER_PLACED
+  REVIEW_POSTED
+  PASSWORD_CHANGED
+  EMAIL_VERIFIED
+  PHONE_VERIFIED
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMATION
+  ORDER_UPDATE
+  PAYMENT_RECEIPT
+  PROMOTION
+  REMINDER
+  SYSTEM_ALERT
+  REVIEW_REQUEST
+  LOYALTY_POINTS
+}
