@@ -1,21 +1,23 @@
-import { CustomerModel, CreateCustomerData, UpdateCustomerData, CustomerProfileData, CustomerPreferencesData, CustomerAddressData, CustomerSearchFilters, CustomerPaginationOptions } from '../models/Customer';
+import { CustomerModel, CreateCustomerData, CustomerProfileData, CustomerPreferencesData, CustomerAddressData, CustomerSearchFilters, CustomerPaginationOptions } from '../models/Customer';
 import DatabaseConnection from '../database/DatabaseConnection';
-import RedisConnection from '../database/RedisConnection';
+import RedisService from './RedisService';
 import EmailService from './EmailService';
 import { config } from '../config/config';
-import { logger } from '@shared/logger';
+import { Logger } from '@sandip1046/rubizz-shared-libs';
 import { v4 as uuidv4 } from 'uuid';
 
 export class CustomerService {
   private customerModel: CustomerModel;
   private emailService: EmailService;
-  private redisConnection: RedisConnection;
+  private redisService: RedisService;
+  private logger: Logger;
 
   constructor() {
     const prisma = DatabaseConnection.getInstance().getPrismaClient();
     this.customerModel = new CustomerModel(prisma);
     this.emailService = new EmailService();
-    this.redisConnection = RedisConnection.getInstance();
+    this.redisService = new RedisService();
+    this.logger = Logger.getInstance('rubizz-customer-service', config.nodeEnv);
   }
 
   // Create a new customer with email verification
@@ -44,7 +46,7 @@ export class CustomerService {
         verificationToken = uuidv4();
         
         // Store verification token in Redis with 24-hour expiry
-        await this.redisConnection.set(
+        await this.redisService.setCache(
           `verification:${verificationToken}`,
           customer.id,
           24 * 60 * 60 // 24 hours
@@ -56,7 +58,7 @@ export class CustomerService {
         try {
           await this.emailService.sendWelcomeEmail(customer.email, `${customer.firstName} ${customer.lastName}`);
         } catch (emailError) {
-          logger.warn('Failed to send welcome email:', emailError);
+          this.logger.warn('Failed to send welcome email:', emailError);
         }
       }
 
@@ -69,17 +71,17 @@ export class CustomerService {
             verificationToken
           );
         } catch (emailError) {
-          logger.warn('Failed to send verification email:', emailError);
+          this.logger.warn('Failed to send verification email:', emailError);
         }
       }
 
       // Log customer activity
       await this.logCustomerActivity(customer.id, 'CUSTOMER_CREATED', 'Customer account created');
 
-      logger.info('Customer created successfully', { customerId: customer.id, email: customer.email });
+      this.logger.info('Customer created successfully', { customerId: customer.id, email: customer.email });
       return customer;
     } catch (error) {
-      logger.error('Failed to create customer:', error);
+      this.logger.error('Failed to create customer:', error as Error);
       throw error;
     }
   }
@@ -88,7 +90,7 @@ export class CustomerService {
   async verifyCustomerEmail(verificationToken: string) {
     try {
       // Get customer ID from Redis
-      const customerId = await this.redisConnection.get(`verification:${verificationToken}`);
+      const customerId = await this.redisService.getCache(`verification:${verificationToken}`);
       if (!customerId) {
         throw new Error('Invalid or expired verification token');
       }
@@ -97,15 +99,15 @@ export class CustomerService {
       const customer = await this.customerModel.verifyCustomer(customerId);
 
       // Remove verification token from Redis
-      await this.redisConnection.del(`verification:${verificationToken}`);
+      await this.redisService.deleteCache(`verification:${verificationToken}`);
 
       // Log customer activity
       await this.logCustomerActivity(customerId, 'EMAIL_VERIFIED', 'Email address verified');
 
-      logger.info('Customer email verified successfully', { customerId });
+      this.logger.info('Customer email verified successfully', { customerId });
       return customer;
     } catch (error) {
-      logger.error('Failed to verify customer email:', error);
+      this.logger.error('Failed to verify customer email:', error as Error);
       throw error;
     }
   }
@@ -118,10 +120,10 @@ export class CustomerService {
       // Log customer activity
       await this.logCustomerActivity(customerId, 'PROFILE_UPDATE', 'Customer profile updated');
 
-      logger.info('Customer profile updated successfully', { customerId });
+      this.logger.info('Customer profile updated successfully', { customerId });
       return profile;
     } catch (error) {
-      logger.error('Failed to update customer profile:', error);
+      this.logger.error('Failed to update customer profile:', error as Error);
       throw error;
     }
   }
@@ -134,10 +136,10 @@ export class CustomerService {
       // Log customer activity
       await this.logCustomerActivity(customerId, 'PREFERENCES_UPDATE', 'Customer preferences updated');
 
-      logger.info('Customer preferences updated successfully', { customerId });
+      this.logger.info('Customer preferences updated successfully', { customerId });
       return preferences;
     } catch (error) {
-      logger.error('Failed to update customer preferences:', error);
+      this.logger.error('Failed to update customer preferences:', error as Error);
       throw error;
     }
   }
@@ -150,10 +152,10 @@ export class CustomerService {
       // Log customer activity
       await this.logCustomerActivity(customerId, 'ADDRESS_ADDED', 'New address added');
 
-      logger.info('Customer address added successfully', { customerId, addressId: address.id });
+      this.logger.info('Customer address added successfully', { customerId, addressId: address.id });
       return address;
     } catch (error) {
-      logger.error('Failed to add customer address:', error);
+      this.logger.error('Failed to add customer address:', error as Error);
       throw error;
     }
   }
@@ -166,10 +168,10 @@ export class CustomerService {
       // Log customer activity
       await this.logCustomerActivity(address.customerId, 'ADDRESS_UPDATED', 'Address updated');
 
-      logger.info('Customer address updated successfully', { addressId });
+      this.logger.info('Customer address updated successfully', { addressId });
       return address;
     } catch (error) {
-      logger.error('Failed to update customer address:', error);
+      this.logger.error('Failed to update customer address:', error as Error);
       throw error;
     }
   }
@@ -187,9 +189,9 @@ export class CustomerService {
         await this.logCustomerActivity(address.id, 'ADDRESS_DELETED', 'Address deleted');
       }
 
-      logger.info('Customer address deleted successfully', { addressId });
+      this.logger.info('Customer address deleted successfully', { addressId });
     } catch (error) {
-      logger.error('Failed to delete customer address:', error);
+      this.logger.error('Failed to delete customer address:', error as Error);
       throw error;
     }
   }
@@ -201,9 +203,9 @@ export class CustomerService {
       const cacheKey = `search:${JSON.stringify({ filters, pagination })}`;
       
       // Try to get from cache first
-      const cachedResult = await this.redisConnection.get(cacheKey);
+      const cachedResult = await this.redisService.getCache(cacheKey);
       if (cachedResult) {
-        logger.debug('Customer search result retrieved from cache', { cacheKey });
+        this.logger.debug('Customer search result retrieved from cache', { cacheKey });
         return JSON.parse(cachedResult);
       }
 
@@ -211,16 +213,16 @@ export class CustomerService {
       const result = await this.customerModel.searchCustomers(filters, pagination);
 
       // Cache result for 5 minutes
-      await this.redisConnection.set(cacheKey, JSON.stringify(result), 300);
+      await this.redisService.setCache(cacheKey, result, 300);
 
-      logger.info('Customer search completed', { 
+      this.logger.info('Customer search completed', { 
         total: result.pagination.total,
         page: result.pagination.page,
         filters 
       });
       return result;
     } catch (error) {
-      logger.error('Failed to search customers:', error);
+      this.logger.error('Failed to search customers:', error as Error);
       throw error;
     }
   }
@@ -247,7 +249,7 @@ export class CustomerService {
         recentActivities,
       };
     } catch (error) {
-      logger.error('Failed to get customer with details:', error);
+      this.logger.error('Failed to get customer with details:', error as Error);
       throw error;
     }
   }
@@ -274,7 +276,7 @@ export class CustomerService {
         recent: recentPoints,
       };
     } catch (error) {
-      logger.error('Failed to get customer loyalty points:', error);
+      this.logger.error('Failed to get customer loyalty points:', error as Error);
       throw error;
     }
   }
@@ -292,7 +294,7 @@ export class CustomerService {
 
       return activities;
     } catch (error) {
-      logger.error('Failed to get customer recent activities:', error);
+      this.logger.error('Failed to get customer recent activities:', error as Error);
       throw error;
     }
   }
@@ -308,7 +310,7 @@ export class CustomerService {
           points,
           type: type as any,
           description,
-          referenceId,
+          referenceId: referenceId || null,
           expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
         },
       });
@@ -316,10 +318,10 @@ export class CustomerService {
       // Log customer activity
       await this.logCustomerActivity(customerId, 'LOYALTY_POINTS_EARNED', `Earned ${points} loyalty points`);
 
-      logger.info('Loyalty points added successfully', { customerId, points, type });
+      this.logger.info('Loyalty points added successfully', { customerId, points, type });
       return loyaltyPoint;
     } catch (error) {
-      logger.error('Failed to add loyalty points:', error);
+      this.logger.error('Failed to add loyalty points:', error as Error);
       throw error;
     }
   }
@@ -341,7 +343,7 @@ export class CustomerService {
           points: -points, // Negative points for redemption
           type: 'REDEEMED',
           description,
-          referenceId,
+          referenceId: referenceId || null,
           isRedeemed: true,
           redeemedAt: new Date(),
         },
@@ -350,10 +352,10 @@ export class CustomerService {
       // Log customer activity
       await this.logCustomerActivity(customerId, 'LOYALTY_POINTS_REDEEMED', `Redeemed ${points} loyalty points`);
 
-      logger.info('Loyalty points redeemed successfully', { customerId, points });
+      this.logger.info('Loyalty points redeemed successfully', { customerId, points });
       return loyaltyPoint;
     } catch (error) {
-      logger.error('Failed to redeem loyalty points:', error);
+      this.logger.error('Failed to redeem loyalty points:', error as Error);
       throw error;
     }
   }
@@ -372,7 +374,7 @@ export class CustomerService {
         },
       });
     } catch (error) {
-      logger.error('Failed to log customer activity:', error);
+      this.logger.error('Failed to log customer activity:', error as Error);
       // Don't throw error for activity logging failures
     }
   }
@@ -403,14 +405,14 @@ export class CustomerService {
             { title, message, type }
           );
         } catch (emailError) {
-          logger.warn('Failed to send notification email:', emailError);
+          this.logger.warn('Failed to send notification email:', emailError);
         }
       }
 
-      logger.info('Customer notification sent successfully', { customerId, type });
+      this.logger.info('Customer notification sent successfully', { customerId, type });
       return notification;
     } catch (error) {
-      logger.error('Failed to send customer notification:', error);
+      this.logger.error('Failed to send customer notification:', error as Error);
       throw error;
     }
   }
@@ -421,7 +423,7 @@ export class CustomerService {
       const stats = await this.customerModel.getCustomerStats();
       return stats;
     } catch (error) {
-      logger.error('Failed to get customer statistics:', error);
+      this.logger.error('Failed to get customer statistics:', error as Error);
       throw error;
     }
   }
@@ -438,9 +440,9 @@ export class CustomerService {
         timestamp: new Date().toISOString(),
       });
 
-      logger.info('Last login updated successfully', { customerId });
+      this.logger.info('Last login updated successfully', { customerId });
     } catch (error) {
-      logger.error('Failed to update last login:', error);
+      this.logger.error('Failed to update last login:', error as Error);
       throw error;
     }
   }
@@ -453,9 +455,9 @@ export class CustomerService {
       // Log deletion activity
       await this.logCustomerActivity(customerId, 'ACCOUNT_DELETED', 'Customer account deleted');
 
-      logger.info('Customer deleted successfully', { customerId });
+      this.logger.info('Customer deleted successfully', { customerId });
     } catch (error) {
-      logger.error('Failed to delete customer:', error);
+      this.logger.error('Failed to delete customer:', error as Error);
       throw error;
     }
   }

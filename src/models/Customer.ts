@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { config } from '../config/config';
-import { logger } from '@shared/logger';
+import { Logger } from '@sandip1046/rubizz-shared-libs';
 
 export interface CreateCustomerData {
   email: string;
@@ -71,9 +71,11 @@ export interface CustomerPaginationOptions {
 
 export class CustomerModel {
   private prisma: PrismaClient;
+  private logger: Logger;
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
+    this.logger = Logger.getInstance('rubizz-customer-service', config.nodeEnv);
   }
 
   // Create a new customer
@@ -91,10 +93,10 @@ export class CustomerModel {
         },
       });
 
-      logger.info('Customer created successfully', { customerId: customer.id });
+      this.logger.info('Customer created successfully', { customerId: customer.id });
       return customer;
     } catch (error) {
-      logger.error('Failed to create customer:', error);
+      this.logger.error('Failed to create customer:', error as Error);
       throw error;
     }
   }
@@ -121,7 +123,7 @@ export class CustomerModel {
 
       return customer;
     } catch (error) {
-      logger.error('Failed to get customer by ID:', error);
+      this.logger.error('Failed to get customer by ID:', error as Error);
       throw error;
     }
   }
@@ -140,7 +142,7 @@ export class CustomerModel {
 
       return customer;
     } catch (error) {
-      logger.error('Failed to get customer by email:', error);
+      this.logger.error('Failed to get customer by email:', error as Error);
       throw error;
     }
   }
@@ -159,7 +161,7 @@ export class CustomerModel {
 
       return customer;
     } catch (error) {
-      logger.error('Failed to get customer by phone:', error);
+      this.logger.error('Failed to get customer by phone:', error as Error);
       throw error;
     }
   }
@@ -180,10 +182,10 @@ export class CustomerModel {
         },
       });
 
-      logger.info('Customer updated successfully', { customerId: id });
+      this.logger.info('Customer updated successfully', { customerId: id });
       return customer;
     } catch (error) {
-      logger.error('Failed to update customer:', error);
+      this.logger.error('Failed to update customer:', error as Error);
       throw error;
     }
   }
@@ -199,10 +201,10 @@ export class CustomerModel {
         },
       });
 
-      logger.info('Customer deleted successfully', { customerId: id });
+      this.logger.info('Customer deleted successfully', { customerId: id });
       return customer;
     } catch (error) {
-      logger.error('Failed to delete customer:', error);
+      this.logger.error('Failed to delete customer:', error as Error);
       throw error;
     }
   }
@@ -288,7 +290,7 @@ export class CustomerModel {
         },
       };
     } catch (error) {
-      logger.error('Failed to search customers:', error);
+      this.logger.error('Failed to search customers:', error as Error);
       throw error;
     }
   }
@@ -308,10 +310,10 @@ export class CustomerModel {
         },
       });
 
-      logger.info('Customer profile updated successfully', { customerId });
+      this.logger.info('Customer profile updated successfully', { customerId });
       return profile;
     } catch (error) {
-      logger.error('Failed to update customer profile:', error);
+      this.logger.error('Failed to update customer profile:', error as Error);
       throw error;
     }
   }
@@ -331,10 +333,10 @@ export class CustomerModel {
         },
       });
 
-      logger.info('Customer preferences updated successfully', { customerId });
+      this.logger.info('Customer preferences updated successfully', { customerId });
       return preferences;
     } catch (error) {
-      logger.error('Failed to update customer preferences:', error);
+      this.logger.error('Failed to update customer preferences:', error as Error);
       throw error;
     }
   }
@@ -357,10 +359,10 @@ export class CustomerModel {
         },
       });
 
-      logger.info('Customer address added successfully', { customerId, addressId: address.id });
+      this.logger.info('Customer address added successfully', { customerId, addressId: address.id });
       return address;
     } catch (error) {
-      logger.error('Failed to add customer address:', error);
+      this.logger.error('Failed to add customer address:', error as Error);
       throw error;
     }
   }
@@ -391,10 +393,10 @@ export class CustomerModel {
         },
       });
 
-      logger.info('Customer address updated successfully', { addressId });
+      this.logger.info('Customer address updated successfully', { addressId });
       return updatedAddress;
     } catch (error) {
-      logger.error('Failed to update customer address:', error);
+      this.logger.error('Failed to update customer address:', error as Error);
       throw error;
     }
   }
@@ -406,9 +408,9 @@ export class CustomerModel {
         where: { id: addressId },
       });
 
-      logger.info('Customer address deleted successfully', { addressId });
+      this.logger.info('Customer address deleted successfully', { addressId });
     } catch (error) {
-      logger.error('Failed to delete customer address:', error);
+      this.logger.error('Failed to delete customer address:', error as Error);
       throw error;
     }
   }
@@ -426,20 +428,28 @@ export class CustomerModel {
 
       return addresses;
     } catch (error) {
-      logger.error('Failed to get customer addresses:', error);
+      this.logger.error('Failed to get customer addresses:', error as Error);
       throw error;
     }
   }
 
   // Update last login
-  async updateLastLogin(id: string) {
+  async updateLastLogin(id: string, ipAddress?: string, userAgent?: string) {
     try {
       await this.prisma.customer.update({
         where: { id },
         data: { lastLoginAt: new Date() },
       });
+      
+      // Log the activity if ipAddress and userAgent are provided
+      if (ipAddress || userAgent) {
+        await this.logCustomerActivity(id, 'LOGIN', 'Customer logged in', {
+          ipAddress,
+          userAgent,
+        });
+      }
     } catch (error) {
-      logger.error('Failed to update last login:', error);
+      this.logger.error('Failed to update last login:', error as Error);
       throw error;
     }
   }
@@ -455,10 +465,10 @@ export class CustomerModel {
         },
       });
 
-      logger.info('Customer verified successfully', { customerId: id });
+      this.logger.info('Customer verified successfully', { customerId: id });
       return customer;
     } catch (error) {
-      logger.error('Failed to verify customer:', error);
+      this.logger.error('Failed to verify customer:', error as Error);
       throw error;
     }
   }
@@ -471,6 +481,8 @@ export class CustomerModel {
         verifiedCustomers,
         activeCustomers,
         newCustomersThisMonth,
+        newCustomersThisWeek,
+        newCustomersToday,
       ] = await Promise.all([
         this.prisma.customer.count(),
         this.prisma.customer.count({ where: { isVerified: true } }),
@@ -482,6 +494,20 @@ export class CustomerModel {
             },
           },
         }),
+        this.prisma.customer.count({
+          where: {
+            createdAt: {
+              gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+            },
+          },
+        }),
+        this.prisma.customer.count({
+          where: {
+            createdAt: {
+              gte: new Date(new Date().setHours(0, 0, 0, 0)),
+            },
+          },
+        }),
       ]);
 
       return {
@@ -489,10 +515,97 @@ export class CustomerModel {
         verifiedCustomers,
         activeCustomers,
         newCustomersThisMonth,
+        newCustomersThisWeek,
+        newCustomersToday,
         verificationRate: totalCustomers > 0 ? (verifiedCustomers / totalCustomers) * 100 : 0,
       };
     } catch (error) {
-      logger.error('Failed to get customer statistics:', error);
+      this.logger.error('Failed to get customer statistics:', error as Error);
+      throw error;
+    }
+  }
+
+  // Add loyalty points
+  async addLoyaltyPoints(customerId: string, points: number, type: string, description: string, referenceId?: string) {
+    try {
+      const loyaltyPoint = await this.prisma.customerLoyaltyPoint.create({
+        data: {
+          customerId,
+          points,
+          type: type as any,
+          description,
+          referenceId: referenceId || null,
+        },
+      });
+
+      this.logger.info('Loyalty points added successfully', { customerId, points, type });
+      return loyaltyPoint;
+    } catch (error) {
+      this.logger.error('Failed to add loyalty points:', error as Error);
+      throw error;
+    }
+  }
+
+  // Redeem loyalty points
+  async redeemLoyaltyPoints(customerId: string, points: number, description: string, referenceId?: string) {
+    try {
+      const loyaltyPoint = await this.prisma.customerLoyaltyPoint.create({
+        data: {
+          customerId,
+          points: -points, // Negative points for redemption
+          type: 'REDEEMED',
+          description,
+          referenceId: referenceId || null,
+        },
+      });
+
+      this.logger.info('Loyalty points redeemed successfully', { customerId, points });
+      return loyaltyPoint;
+    } catch (error) {
+      this.logger.error('Failed to redeem loyalty points:', error as Error);
+      throw error;
+    }
+  }
+
+  // Log customer activity
+  async logCustomerActivity(customerId: string, activityType: string, description: string, metadata?: any, ipAddress?: string, userAgent?: string) {
+    try {
+      const activity = await this.prisma.customerActivity.create({
+        data: {
+          customerId,
+          activityType: activityType as any,
+          description,
+          metadata: metadata ? JSON.stringify(metadata) : null,
+          ipAddress: ipAddress || null,
+          userAgent: userAgent || null,
+        },
+      });
+
+      this.logger.info('Customer activity logged successfully', { customerId, activityType });
+      return activity;
+    } catch (error) {
+      this.logger.error('Failed to log customer activity:', error as Error);
+      throw error;
+    }
+  }
+
+  // Send customer notification
+  async sendCustomerNotification(customerId: string, type: string, title: string, message: string, metadata?: any) {
+    try {
+      const notification = await this.prisma.customerNotification.create({
+        data: {
+          customerId,
+          type: type as any,
+          title,
+          message,
+          metadata: metadata ? JSON.stringify(metadata) : null,
+        },
+      });
+
+      this.logger.info('Customer notification sent successfully', { customerId, type });
+      return notification;
+    } catch (error) {
+      this.logger.error('Failed to send customer notification:', error as Error);
       throw error;
     }
   }

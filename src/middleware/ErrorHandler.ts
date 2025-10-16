@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { logger } from '@shared/logger';
+import { Logger } from '@sandip1046/rubizz-shared-libs';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -8,8 +8,10 @@ export interface AppError extends Error {
 }
 
 export class ErrorHandler {
+  private static logger = Logger.getInstance('rubizz-customer-service', process.env['NODE_ENV'] || 'development');
+
   // Handle 404 errors
-  static notFound(req: Request, res: Response, next: NextFunction) {
+  static notFound(req: Request, _res: Response, next: NextFunction): void {
     const error = new Error(`Not Found - ${req.originalUrl}`) as AppError;
     error.statusCode = 404;
     error.code = 'NOT_FOUND';
@@ -17,28 +19,13 @@ export class ErrorHandler {
   }
 
   // Main error handler
-  static handle(error: AppError, req: Request, res: Response, next: NextFunction) {
+  static handle(error: AppError, _req: Request, res: Response, _next: NextFunction): void {
     let statusCode = error.statusCode || 500;
     let message = error.message || 'Internal Server Error';
     let code = error.code || 'INTERNAL_ERROR';
 
     // Log error
-    logger.error('Error occurred:', {
-      error: {
-        message: error.message,
-        stack: error.stack,
-        statusCode: error.statusCode,
-        code: error.code,
-      },
-      request: {
-        method: req.method,
-        url: req.originalUrl,
-        headers: req.headers,
-        body: req.body,
-        params: req.params,
-        query: req.query,
-      },
-    });
+    ErrorHandler.logger.error('Error occurred:', error as Error);
 
     // Handle specific error types
     if (error.name === 'ValidationError') {
@@ -104,7 +91,7 @@ export class ErrorHandler {
     }
 
     // Don't leak error details in production
-    if (process.env.NODE_ENV === 'production' && !error.isOperational) {
+    if (process.env['NODE_ENV'] === 'production' && !error.isOperational) {
       message = 'Something went wrong';
       code = 'INTERNAL_ERROR';
     }
@@ -114,7 +101,7 @@ export class ErrorHandler {
       success: false,
       message,
       code,
-      ...(process.env.NODE_ENV === 'development' && {
+      ...(process.env['NODE_ENV'] === 'development' && {
         stack: error.stack,
         details: error,
       }),
@@ -132,13 +119,13 @@ export class ErrorHandler {
   static createError(message: string, statusCode: number = 500, code?: string): AppError {
     const error = new Error(message) as AppError;
     error.statusCode = statusCode;
-    error.code = code;
+    (error as any).code = code;
     error.isOperational = true;
     return error;
   }
 
   // Validation error
-  static validationError(message: string, field?: string): AppError {
+  static validationError(message: string, _field?: string): AppError {
     const error = new Error(message) as AppError;
     error.statusCode = 400;
     error.code = 'VALIDATION_ERROR';

@@ -1,9 +1,11 @@
 import rateLimit from 'express-rate-limit';
 import { Request, Response } from 'express';
 import { config } from '../config/config';
-import { logger } from '@shared/logger';
+import { Logger } from '@sandip1046/rubizz-shared-libs';
 
 export class RateLimitMiddleware {
+  private static logger = Logger.getInstance('rubizz-customer-service', process.env['NODE_ENV'] || 'development');
+
   // General rate limiter
   static general = rateLimit({
     windowMs: config.rateLimit.windowMs,
@@ -16,7 +18,7 @@ export class RateLimitMiddleware {
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req: Request, res: Response) => {
-      logger.warn('Rate limit exceeded', {
+      RateLimitMiddleware.logger.warn('Rate limit exceeded', {
         ip: req.ip,
         userAgent: req.get('User-Agent'),
         url: req.originalUrl,
@@ -43,7 +45,7 @@ export class RateLimitMiddleware {
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req: Request, res: Response) => {
-      logger.warn('Strict rate limit exceeded', {
+      RateLimitMiddleware.logger.warn('Strict rate limit exceeded', {
         ip: req.ip,
         userAgent: req.get('User-Agent'),
         url: req.originalUrl,
@@ -71,7 +73,7 @@ export class RateLimitMiddleware {
     legacyHeaders: false,
     skipSuccessfulRequests: true, // Don't count successful requests
     handler: (req: Request, res: Response) => {
-      logger.warn('Auth rate limit exceeded', {
+      RateLimitMiddleware.logger.warn('Auth rate limit exceeded', {
         ip: req.ip,
         userAgent: req.get('User-Agent'),
         url: req.originalUrl,
@@ -98,7 +100,7 @@ export class RateLimitMiddleware {
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req: Request, res: Response) => {
-      logger.warn('Password reset rate limit exceeded', {
+      RateLimitMiddleware.logger.warn('Password reset rate limit exceeded', {
         ip: req.ip,
         userAgent: req.get('User-Agent'),
         url: req.originalUrl,
@@ -125,7 +127,7 @@ export class RateLimitMiddleware {
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req: Request, res: Response) => {
-      logger.warn('Email verification rate limit exceeded', {
+      RateLimitMiddleware.logger.warn('Email verification rate limit exceeded', {
         ip: req.ip,
         userAgent: req.get('User-Agent'),
         url: req.originalUrl,
@@ -152,7 +154,7 @@ export class RateLimitMiddleware {
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req: Request, res: Response) => {
-      logger.warn('Customer creation rate limit exceeded', {
+      RateLimitMiddleware.logger.warn('Customer creation rate limit exceeded', {
         ip: req.ip,
         userAgent: req.get('User-Agent'),
         url: req.originalUrl,
@@ -179,7 +181,7 @@ export class RateLimitMiddleware {
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req: Request, res: Response) => {
-      logger.warn('Profile update rate limit exceeded', {
+      RateLimitMiddleware.logger.warn('Profile update rate limit exceeded', {
         ip: req.ip,
         userAgent: req.get('User-Agent'),
         url: req.originalUrl,
@@ -206,7 +208,7 @@ export class RateLimitMiddleware {
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req: Request, res: Response) => {
-      logger.warn('Search rate limit exceeded', {
+      RateLimitMiddleware.logger.warn('Search rate limit exceeded', {
         ip: req.ip,
         userAgent: req.get('User-Agent'),
         url: req.originalUrl,

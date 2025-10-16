@@ -1,19 +1,21 @@
 import { Request, Response } from 'express';
 import DatabaseConnection from '../database/DatabaseConnection';
-import RedisConnection from '../database/RedisConnection';
-import { logger } from '@shared/logger';
+import RedisService from '../services/RedisService';
+import { Logger } from '@sandip1046/rubizz-shared-libs';
 
 export class HealthController {
   private dbConnection: DatabaseConnection;
-  private redisConnection: RedisConnection;
+  private redisService: RedisService;
+  private logger: Logger;
 
   constructor() {
     this.dbConnection = DatabaseConnection.getInstance();
-    this.redisConnection = RedisConnection.getInstance();
+    this.redisService = new RedisService();
+    this.logger = Logger.getInstance('rubizz-customer-service', process.env['NODE_ENV'] || 'development');
   }
 
   // Basic health check
-  public healthCheck = async (req: Request, res: Response) => {
+  public healthCheck = async (_req: Request, res: Response) => {
     try {
       res.status(200).json({
         success: true,
@@ -23,7 +25,7 @@ export class HealthController {
         version: '1.0.0',
       });
     } catch (error) {
-      logger.error('Health check failed:', error);
+      this.logger.error('Health check failed:', error as Error);
       res.status(500).json({
         success: false,
         message: 'Health check failed',
@@ -33,7 +35,7 @@ export class HealthController {
   };
 
   // Detailed health check with dependencies
-  public detailedHealthCheck = async (req: Request, res: Response) => {
+  public detailedHealthCheck = async (_req: Request, res: Response) => {
     try {
       const healthStatus = {
         success: true,
@@ -45,12 +47,12 @@ export class HealthController {
           database: {
             status: 'unknown',
             responseTime: 0,
-            error: null,
+            error: null as string | null,
           },
           redis: {
             status: 'unknown',
             responseTime: 0,
-            error: null,
+            error: null as string | null,
           },
         },
         uptime: process.uptime(),
@@ -59,7 +61,7 @@ export class HealthController {
           total: process.memoryUsage().heapTotal,
           external: process.memoryUsage().external,
         },
-        environment: process.env.NODE_ENV || 'development',
+        environment: process.env['NODE_ENV'] || 'development',
       };
 
       // Check database connection
@@ -71,34 +73,34 @@ export class HealthController {
         healthStatus.dependencies.database = {
           status: dbHealthy ? 'healthy' : 'unhealthy',
           responseTime: dbResponseTime,
-          error: null,
+          error: null as string | null,
         };
       } catch (error) {
         const dbResponseTime = Date.now() - dbStartTime;
         healthStatus.dependencies.database = {
           status: 'unhealthy',
           responseTime: dbResponseTime,
-          error: error.message,
+          error: (error as Error).message || 'Unknown error',
         };
       }
 
-      // Check Redis connection
+      // Check Redis Service connection
       const redisStartTime = Date.now();
       try {
-        const redisHealthy = await this.redisConnection.healthCheck();
+        const redisHealth = await this.redisService.healthCheck();
         const redisResponseTime = Date.now() - redisStartTime;
         
         healthStatus.dependencies.redis = {
-          status: redisHealthy ? 'healthy' : 'unhealthy',
+          status: redisHealth.session && redisHealth.cache && redisHealth.queue ? 'healthy' : 'unhealthy',
           responseTime: redisResponseTime,
-          error: null,
+          error: null as string | null,
         };
       } catch (error) {
         const redisResponseTime = Date.now() - redisStartTime;
         healthStatus.dependencies.redis = {
           status: 'unhealthy',
           responseTime: redisResponseTime,
-          error: error.message,
+          error: (error as Error).message || 'Unknown error',
         };
       }
 
@@ -115,21 +117,21 @@ export class HealthController {
       const statusCode = allDependenciesHealthy ? 200 : 503;
       res.status(statusCode).json(healthStatus);
     } catch (error) {
-      logger.error('Detailed health check failed:', error);
+      this.logger.error('Detailed health check failed:', error as Error);
       res.status(500).json({
         success: false,
         message: 'Health check failed',
         timestamp: new Date().toISOString(),
-        error: error.message,
+        error: (error as Error).message || 'Unknown error' || null,
       });
     }
   };
 
   // Readiness check (for Kubernetes)
-  public readinessCheck = async (req: Request, res: Response) => {
+  public readinessCheck = async (_req: Request, res: Response) => {
     try {
       const dbHealthy = await this.dbConnection.healthCheck();
-      const redisHealthy = await this.redisConnection.healthCheck();
+      const redisHealthy = await this.redisService.healthCheck();
 
       if (dbHealthy && redisHealthy) {
         res.status(200).json({
@@ -149,18 +151,18 @@ export class HealthController {
         });
       }
     } catch (error) {
-      logger.error('Readiness check failed:', error);
+      this.logger.error('Readiness check failed:', error as Error);
       res.status(503).json({
         success: false,
         message: 'Service is not ready',
         timestamp: new Date().toISOString(),
-        error: error.message,
+        error: (error as Error).message || 'Unknown error' || null,
       });
     }
   };
 
   // Liveness check (for Kubernetes)
-  public livenessCheck = async (req: Request, res: Response) => {
+  public livenessCheck = async (_req: Request, res: Response) => {
     try {
       res.status(200).json({
         success: true,
@@ -173,18 +175,18 @@ export class HealthController {
         },
       });
     } catch (error) {
-      logger.error('Liveness check failed:', error);
+      this.logger.error('Liveness check failed:', error as Error);
       res.status(500).json({
         success: false,
         message: 'Service is not alive',
         timestamp: new Date().toISOString(),
-        error: error.message,
+        error: (error as Error).message || 'Unknown error' || null,
       });
     }
   };
 
   // Metrics endpoint
-  public metrics = async (req: Request, res: Response) => {
+  public metrics = async (_req: Request, res: Response) => {
     try {
       const metrics = {
         service: 'rubizz-customer-service',
@@ -205,20 +207,66 @@ export class HealthController {
           platform: process.platform,
           arch: process.arch,
         },
-        environment: process.env.NODE_ENV || 'development',
+        environment: process.env['NODE_ENV'] || 'development',
       };
 
       res.status(200).json(metrics);
     } catch (error) {
-      logger.error('Metrics endpoint failed:', error);
+      this.logger.error('Metrics endpoint failed:', error as Error);
       res.status(500).json({
         success: false,
         message: 'Failed to retrieve metrics',
         timestamp: new Date().toISOString(),
-        error: error.message,
+        error: (error as Error).message || 'Unknown error' || null,
       });
     }
   };
+
+  // GraphQL-specific method
+  public async getHealthStatus() {
+    try {
+      const dbHealthy = await this.dbConnection.healthCheck();
+      const redisHealthy = await this.redisService.healthCheck();
+
+      return {
+        status: dbHealthy && redisHealthy ? 'healthy' : 'unhealthy',
+        message: dbHealthy && redisHealthy ? 'Service is healthy' : 'Service is unhealthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        database: dbHealthy,
+        redis: redisHealthy,
+        services: {
+          database: dbHealthy ? 'connected' : 'disconnected',
+          redis: redisHealthy ? 'connected' : 'disconnected',
+        },
+      };
+    } catch (error) {
+      this.logger.error('Failed to get health status:', error as Error);
+      throw error;
+    }
+  }
+
+  // gRPC-specific method
+  public async healthCheckGrpc(_call: any, callback: any) {
+    try {
+      const health = await this.getHealthStatus();
+      callback(null, {
+        status: health.status === 'healthy' ? 'healthy' : 'unhealthy',
+        message: health.message || 'Service is running',
+        timestamp: health.timestamp,
+        uptime: health.uptime,
+        database: health.database,
+        redis: health.redis,
+        services: health.services,
+      });
+    } catch (error) {
+      this.logger.error('Failed to get health status via gRPC:', error as Error);
+      callback({
+        code: 500,
+        message: 'Failed to get health status',
+      });
+    }
+  }
 }
 
 export default HealthController;

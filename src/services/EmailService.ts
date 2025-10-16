@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config/config';
-import { logger } from '@shared/logger';
+import { Logger } from '@sandip1046/rubizz-shared-libs';
 
 export interface EmailOptions {
   to: string | string[];
@@ -18,9 +18,11 @@ export interface EmailOptions {
 
 export class EmailService {
   private transporter: nodemailer.Transporter;
+  private logger: Logger;
 
   constructor() {
-    this.transporter = nodemailer.createTransporter({
+    this.logger = Logger.getInstance('rubizz-customer-service', config.nodeEnv);
+    this.transporter = nodemailer.createTransport({
       host: config.email.smtp.host,
       port: config.email.smtp.port,
       secure: false, // true for 465, false for other ports
@@ -37,9 +39,9 @@ export class EmailService {
   private async verifyConnection() {
     try {
       await this.transporter.verify();
-      logger.info('Email service connection verified');
+      this.logger.info('Email service connection verified');
     } catch (error) {
-      logger.error('Email service connection failed:', error);
+      this.logger.error('Email service connection failed:', error as Error);
     }
   }
 
@@ -59,10 +61,10 @@ export class EmailService {
       };
 
       const result = await this.transporter.sendMail(mailOptions);
-      logger.info('Email sent successfully', { messageId: result.messageId, to: options.to });
+      this.logger.info('Email sent successfully', { messageId: result.messageId, to: options.to });
       return true;
     } catch (error) {
-      logger.error('Failed to send email:', error);
+      this.logger.error('Failed to send email:', error as Error);
       return false;
     }
   }

@@ -6,12 +6,12 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 model Customer {
-  id                String   @id @default(cuid())
+  id                String   @id @default(cuid()) @map("_id")
   email             String   @unique
   phone             String?  @unique
   firstName         String
@@ -39,7 +39,7 @@ model Customer {
 }
 
 model CustomerProfile {
-  id                String   @id @default(cuid())
+  id                String   @id @default(cuid()) @map("_id")
   customerId        String   @unique
   avatar            String?
   bio               String?
@@ -57,7 +57,7 @@ model CustomerProfile {
 }
 
 model CustomerPreferences {
-  id                String   @id @default(cuid())
+  id                String   @id @default(cuid()) @map("_id")
   customerId        String   @unique
   language          String   @default("en")
   currency          String   @default("USD")
@@ -76,7 +76,7 @@ model CustomerPreferences {
 }
 
 model CustomerAddress {
-  id                String   @id @default(cuid())
+  id                String   @id @default(cuid()) @map("_id")
   customerId        String
   type              AddressType @default(HOME)
   addressLine1      String
@@ -97,7 +97,7 @@ model CustomerAddress {
 }
 
 model CustomerBooking {
-  id                String   @id @default(cuid())
+  id                String   @id @default(cuid()) @map("_id")
   customerId        String
   bookingType       BookingType
   referenceId       String   // Reference to hotel booking, table booking, or hall booking
@@ -105,8 +105,8 @@ model CustomerBooking {
   bookingDate       DateTime
   checkInDate       DateTime?
   checkOutDate      DateTime?
-  totalAmount       Decimal  @db.Decimal(10, 2)
-  paidAmount        Decimal  @default(0) @db.Decimal(10, 2)
+  totalAmount       Float
+  paidAmount        Float     @default(0)
   specialRequests   String?
   notes             String?
   createdAt         DateTime @default(now())
@@ -119,15 +119,15 @@ model CustomerBooking {
 }
 
 model CustomerOrder {
-  id                String   @id @default(cuid())
+  id                String   @id @default(cuid()) @map("_id")
   customerId        String
   orderType         OrderType
   referenceId       String   // Reference to food order or delivery order
   status            OrderStatus @default(PENDING)
   orderDate         DateTime
   deliveryDate      DateTime?
-  totalAmount       Decimal  @db.Decimal(10, 2)
-  paidAmount        Decimal  @default(0) @db.Decimal(10, 2)
+  totalAmount       Float
+  paidAmount        Float     @default(0)
   deliveryAddress   String?
   specialInstructions String?
   createdAt         DateTime @default(now())
@@ -140,11 +140,11 @@ model CustomerOrder {
 }
 
 model CustomerReview {
-  id                String   @id @default(cuid())
+  id                String   @id @default(cuid()) @map("_id")
   customerId        String
   reviewType        ReviewType
   referenceId       String   // Reference to hotel room, restaurant, food item, etc.
-  rating            Int      @db.SmallInt
+  rating            Int
   title             String?
   comment           String?
   isVerified        Boolean  @default(false)
@@ -160,7 +160,7 @@ model CustomerReview {
 }
 
 model CustomerLoyaltyPoint {
-  id                String   @id @default(cuid())
+  id                String   @id @default(cuid()) @map("_id")
   customerId        String
   points            Int
   type              LoyaltyPointType
@@ -178,7 +178,7 @@ model CustomerLoyaltyPoint {
 }
 
 model CustomerActivity {
-  id                String   @id @default(cuid())
+  id                String   @id @default(cuid()) @map("_id")
   customerId        String
   activityType      ActivityType
   description       String
@@ -194,7 +194,7 @@ model CustomerActivity {
 }
 
 model CustomerNotification {
-  id                String   @id @default(cuid())
+  id                String   @id @default(cuid()) @map("_id")
   customerId        String
   type              NotificationType
   title             String

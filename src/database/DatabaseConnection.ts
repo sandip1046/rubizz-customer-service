@@ -1,12 +1,14 @@
 import { PrismaClient } from '@prisma/client';
 import { config } from '../config/config';
-import { logger } from '@shared/logger';
+import { Logger } from '@sandip1046/rubizz-shared-libs';
 
 class DatabaseConnection {
   private static instance: DatabaseConnection;
   private prisma: PrismaClient;
+  private logger: Logger;
 
   private constructor() {
+    this.logger = Logger.getInstance('rubizz-customer-service', config.nodeEnv);
     this.prisma = new PrismaClient({
       datasources: {
         db: {
@@ -33,31 +35,8 @@ class DatabaseConnection {
       ],
     });
 
-    // Log database queries in development
-    if (config.nodeEnv === 'development') {
-      this.prisma.$on('query', (e) => {
-        logger.debug('Database Query:', {
-          query: e.query,
-          params: e.params,
-          duration: `${e.duration}ms`,
-        });
-      });
-    }
-
-    // Log database errors
-    this.prisma.$on('error', (e) => {
-      logger.error('Database Error:', e);
-    });
-
-    // Log database info
-    this.prisma.$on('info', (e) => {
-      logger.info('Database Info:', e);
-    });
-
-    // Log database warnings
-    this.prisma.$on('warn', (e) => {
-      logger.warn('Database Warning:', e);
-    });
+    // Log database connection
+    this.logger.info('Database connection initialized');
   }
 
   public static getInstance(): DatabaseConnection {
@@ -74,9 +53,9 @@ class DatabaseConnection {
   public async connect(): Promise<void> {
     try {
       await this.prisma.$connect();
-      logger.info('Database connected successfully');
+      this.logger.info('Database connected successfully');
     } catch (error) {
-      logger.error('Database connection failed:', error);
+      this.logger.error('Database connection failed:', error as Error);
       throw error;
     }
   }
@@ -84,19 +63,20 @@ class DatabaseConnection {
   public async disconnect(): Promise<void> {
     try {
       await this.prisma.$disconnect();
-      logger.info('Database disconnected successfully');
+      this.logger.info('Database disconnected successfully');
     } catch (error) {
-      logger.error('Database disconnection failed:', error);
+      this.logger.error('Database disconnection failed:', error as Error);
       throw error;
     }
   }
 
   public async healthCheck(): Promise<boolean> {
     try {
-      await this.prisma.$queryRaw`SELECT 1`;
+      // For MongoDB, we can use a simple findFirst operation to check connection
+      await this.prisma.customer.findFirst();
       return true;
     } catch (error) {
-      logger.error('Database health check failed:', error);
+      this.logger.error('Database health check failed:', error as Error);
       return false;
     }
   }

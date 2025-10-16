@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/config';
-import { logger } from '@shared/logger';
+import { Logger } from '@sandip1046/rubizz-shared-libs';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -13,27 +13,29 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export class AuthMiddleware {
+  private static logger = Logger.getInstance('rubizz-customer-service', process.env['NODE_ENV'] || 'development');
+
   // Verify JWT token
-  static async verifyToken(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static async verifyToken(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const authHeader = req.headers.authorization;
       
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
+        res.status(401).json({
           success: false,
           message: 'Access token required',
           code: 'MISSING_TOKEN',
         });
       }
 
-      const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+      const token = authHeader!.substring(7); // Remove 'Bearer ' prefix
 
       try {
         const decoded = jwt.verify(token, config.jwt.secret) as any;
         
         // Validate token structure
         if (!decoded.id || !decoded.email || !decoded.role) {
-          return res.status(401).json({
+          res.status(401).json({
             success: false,
             message: 'Invalid token structure',
             code: 'INVALID_TOKEN',
@@ -48,19 +50,19 @@ export class AuthMiddleware {
           customerId: decoded.customerId,
         };
 
-        logger.debug('Token verified successfully', { userId: decoded.id, role: decoded.role });
+        AuthMiddleware.logger.debug('Token verified successfully', { userId: decoded.id, role: decoded.role });
         next();
       } catch (jwtError) {
-        logger.warn('Token verification failed', { error: jwtError.message });
-        return res.status(401).json({
+        AuthMiddleware.logger.warn('Token verification failed', { error: (jwtError as Error).message });
+        res.status(401).json({
           success: false,
           message: 'Invalid or expired token',
           code: 'INVALID_TOKEN',
         });
       }
     } catch (error) {
-      logger.error('Auth middleware error:', error);
-      return res.status(500).json({
+      AuthMiddleware.logger.error('Auth middleware error:', error as Error);
+        res.status(500).json({
         success: false,
         message: 'Authentication error',
         code: 'AUTH_ERROR',
@@ -69,17 +71,17 @@ export class AuthMiddleware {
   }
 
   // Check if user is customer
-  static requireCustomer(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static requireCustomer(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
     if (!req.user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: 'Authentication required',
         code: 'AUTH_REQUIRED',
       });
     }
 
-    if (req.user.role !== 'CUSTOMER') {
-      return res.status(403).json({
+    if (req.user!.role !== 'CUSTOMER') {
+      res.status(403).json({
         success: false,
         message: 'Customer access required',
         code: 'CUSTOMER_ACCESS_REQUIRED',
@@ -90,17 +92,17 @@ export class AuthMiddleware {
   }
 
   // Check if user is admin
-  static requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
     if (!req.user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: 'Authentication required',
         code: 'AUTH_REQUIRED',
       });
     }
 
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(req.user.role)) {
-      return res.status(403).json({
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(req.user!.role)) {
+      res.status(403).json({
         success: false,
         message: 'Admin access required',
         code: 'ADMIN_ACCESS_REQUIRED',
@@ -111,17 +113,17 @@ export class AuthMiddleware {
   }
 
   // Check if user is super admin
-  static requireSuperAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static requireSuperAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
     if (!req.user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: 'Authentication required',
         code: 'AUTH_REQUIRED',
       });
     }
 
-    if (req.user.role !== 'SUPER_ADMIN') {
-      return res.status(403).json({
+    if (req.user!.role !== 'SUPER_ADMIN') {
+      res.status(403).json({
         success: false,
         message: 'Super admin access required',
         code: 'SUPER_ADMIN_ACCESS_REQUIRED',
@@ -132,34 +134,35 @@ export class AuthMiddleware {
   }
 
   // Check if user can access customer data
-  static canAccessCustomer(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static canAccessCustomer(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
     if (!req.user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: 'Authentication required',
         code: 'AUTH_REQUIRED',
       });
+      return;
     }
 
     // Admin and super admin can access any customer data
-    if (['ADMIN', 'SUPER_ADMIN'].includes(req.user.role)) {
-      return next();
+    if (['ADMIN', 'SUPER_ADMIN'].includes(req.user!.role)) {
+      next();
     }
 
     // Customer can only access their own data
-    if (req.user.role === 'CUSTOMER') {
-      const customerId = req.params.customerId || req.params.id;
+    if (req.user!.role === 'CUSTOMER') {
+      const customerId = req.params['customerId'] || req.params['id'];
       
       if (!customerId) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: 'Customer ID required',
           code: 'CUSTOMER_ID_REQUIRED',
         });
       }
 
-      if (req.user.customerId !== customerId) {
-        return res.status(403).json({
+      if (req.user!.customerId !== customerId) {
+        res.status(403).json({
           success: false,
           message: 'Access denied to customer data',
           code: 'CUSTOMER_ACCESS_DENIED',
@@ -171,14 +174,14 @@ export class AuthMiddleware {
   }
 
   // Optional authentication (doesn't fail if no token)
-  static optionalAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static optionalAuth(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return next();
+      next();
     }
 
-    const token = authHeader.substring(7);
+    const token = authHeader!.substring(7);
 
     try {
       const decoded = jwt.verify(token, config.jwt.secret) as any;
@@ -193,24 +196,24 @@ export class AuthMiddleware {
       }
     } catch (error) {
       // Ignore token errors for optional auth
-      logger.debug('Optional auth token verification failed', { error: error.message });
+      AuthMiddleware.logger.debug('Optional auth token verification failed', { error: (error as Error).message });
     }
 
     next();
   }
 
   // Check if customer is verified
-  static requireVerifiedCustomer(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  static requireVerifiedCustomer(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
     if (!req.user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: 'Authentication required',
         code: 'AUTH_REQUIRED',
       });
     }
 
-    if (req.user.role !== 'CUSTOMER') {
-      return res.status(403).json({
+    if (req.user!.role !== 'CUSTOMER') {
+      res.status(403).json({
         success: false,
         message: 'Customer access required',
         code: 'CUSTOMER_ACCESS_REQUIRED',

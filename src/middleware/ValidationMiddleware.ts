@@ -1,11 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
-import { logger } from '@shared/logger';
+import { Logger } from '@sandip1046/rubizz-shared-libs';
 
 export class ValidationMiddleware {
+  private static logger = Logger.getInstance('rubizz-customer-service', process.env['NODE_ENV'] || 'development');
+
   // Generic validation middleware
   static validate(schema: Joi.ObjectSchema, property: 'body' | 'query' | 'params' = 'body') {
-    return (req: Request, res: Response, next: NextFunction) => {
+    return (req: Request, res: Response, next: NextFunction): void => {
       const data = req[property];
       
       const { error, value } = schema.validate(data, {
@@ -21,13 +23,13 @@ export class ValidationMiddleware {
           value: detail.context?.value,
         }));
 
-        logger.warn('Validation failed', {
+        ValidationMiddleware.logger.warn('Validation failed', {
           property,
           errors: errorDetails,
           data,
         });
 
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: 'Validation failed',
           code: 'VALIDATION_ERROR',
