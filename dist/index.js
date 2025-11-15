@@ -20,6 +20,8 @@ const rubizz_shared_libs_1 = require("@sandip1046/rubizz-shared-libs");
 const GrpcServer_1 = __importDefault(require("./grpc/GrpcServer"));
 const GraphQLServer_1 = __importDefault(require("./graphql/GraphQLServer"));
 const KafkaService_1 = __importDefault(require("./kafka/KafkaService"));
+const CustomerBusinessService_1 = require("./services/CustomerBusinessService");
+const WebSocketServer_1 = __importDefault(require("./websocket/WebSocketServer"));
 class CustomerServiceApp {
     constructor() {
         this.app = (0, express_1.default)();
@@ -74,12 +76,15 @@ class CustomerServiceApp {
     async initializeServices() {
         try {
             this.healthController = new HealthController_1.default();
-            this.customerController = new CustomerController_1.default();
             if (config_1.config.kafka.enabled) {
                 this.kafkaService = new KafkaService_1.default();
                 await this.kafkaService.initialize();
                 this.logger.info('Kafka service initialized successfully');
             }
+            this.customerBusinessService = new CustomerBusinessService_1.CustomerBusinessService(this.kafkaService);
+            this.customerController = new CustomerController_1.default(this.customerBusinessService);
+            this.websocketServer = new WebSocketServer_1.default(this.httpServer, this.customerBusinessService);
+            this.logger.info('WebSocket server initialized successfully');
             this.grpcServer = new GrpcServer_1.default(this.customerController, this.healthController);
             await this.grpcServer.initialize();
             this.logger.info('gRPC server initialized successfully');
@@ -187,6 +192,10 @@ class CustomerServiceApp {
                 if (this.graphqlServer) {
                     await this.graphqlServer.stop();
                     this.logger.info('GraphQL server stopped successfully');
+                }
+                if (this.websocketServer) {
+                    this.websocketServer.stop();
+                    this.logger.info('WebSocket server stopped successfully');
                 }
                 if (this.kafkaService) {
                     await this.kafkaService.disconnect();

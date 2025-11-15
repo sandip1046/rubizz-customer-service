@@ -6,6 +6,8 @@ declare class CustomerServiceApp {
     private grpcServer;
     private graphqlServer;
     private kafkaService;
+    private websocketServer;
+    private customerBusinessService;
     private customerController;
     private healthController;
     private logger;

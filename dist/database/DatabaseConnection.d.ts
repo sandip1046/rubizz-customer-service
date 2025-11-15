@@ -1,14 +1,15 @@
-import { PrismaClient } from '@prisma/client';
+import mongoose from 'mongoose';
 declare class DatabaseConnection {
     private static instance;
-    private prisma;
     private logger;
+    private isConnected;
     private constructor();
     static getInstance(): DatabaseConnection;
-    getPrismaClient(): PrismaClient;
+    getMongoose(): typeof mongoose;
     connect(): Promise<void>;
     disconnect(): Promise<void>;
     healthCheck(): Promise<boolean>;
+    isConnectionActive(): boolean;
 }
 export default DatabaseConnection;
 //# sourceMappingURL=DatabaseConnection.d.ts.map

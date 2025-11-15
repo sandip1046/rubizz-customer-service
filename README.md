@@ -1,27 +1,25 @@
 # Rubizz Customer Service
 
-Customer management microservice for the Rubizz Hotel Inn platform with multi-protocol communication support.
+Enterprise-grade customer management microservice for the Rubizz Hotel Inn platform with optimized multi-protocol communication architecture.
 
-## Overview
+## 🏗️ Architecture Overview
 
-This service handles all customer-related operations including:
-- Customer registration and profile management
-- Customer preferences and settings
-- Address management
-- Loyalty points system
-- Customer activity tracking
-- Email notifications
-- Customer search and analytics
+This service implements a **clean architecture** with proper separation of concerns:
 
-## Multi-Protocol Support
+- **Business Service Layer** - Core business logic with caching and event publishing
+- **Controller Layer** - Protocol-specific controllers (REST, GraphQL, gRPC)
+- **WebSocket Server** - Real-time bidirectional communication
+- **Event-Driven Architecture** - Kafka integration for reliable event streaming
 
-This service supports multiple communication protocols for maximum flexibility and performance:
+## 🚀 Multi-Protocol Support
 
-- **REST API** - Traditional HTTP/REST endpoints for web applications
-- **GraphQL API** - Flexible GraphQL queries and mutations with real-time subscriptions
-- **gRPC Server** - High-performance gRPC communication for internal service-to-service calls
-- **WebSocket** - Real-time subscriptions and live updates
-- **Kafka Integration** - Event-driven architecture for reliable event streaming
+This service supports multiple communication protocols optimized for different use cases:
+
+- **REST API** - Traditional HTTP/REST endpoints for web applications (10-50ms)
+- **GraphQL API** - Flexible queries with real-time subscriptions (10-50ms)
+- **gRPC Server** - High-performance internal service communication (1-5ms)
+- **WebSocket Server** - Real-time bidirectional communication (1-5ms)
+- **Kafka Integration** - Event-driven architecture for reliable messaging (5-20ms)
 
 ## Features
 
@@ -55,6 +53,10 @@ This service supports multiple communication protocols for maximum flexibility a
 - `GET /graphql` - GraphQL playground (development)
 - `WebSocket /graphql-ws` - GraphQL subscriptions for real-time features
 
+### WebSocket Endpoint
+- `WebSocket /ws` - Real-time bidirectional communication
+- Supports customer updates, notifications, and live data
+
 ### gRPC Endpoint
 - `localhost:50053` - gRPC service for high-performance communication
 
@@ -82,20 +84,31 @@ This service supports multiple communication protocols for maximum flexibility a
 
 ## Database Schema
 
-### Core Tables
+### MongoDB Collections
 - `customers` - Main customer information
 - `customer_profiles` - Extended profile data
 - `customer_preferences` - User preferences and settings
 - `customer_addresses` - Customer addresses
+- `customer_bookings` - Customer booking records
+- `customer_orders` - Customer order records
+- `customer_reviews` - Customer review records
 - `customer_activities` - Activity audit trail
 - `customer_notifications` - Notification records
 - `customer_loyalty_points` - Loyalty points tracking
 
+### Mongoose Schemas
+All models are defined using Mongoose schemas with proper TypeScript interfaces, validation, and indexing for optimal performance.
+
 ### Enums
 - `Gender` - MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY
 - `AddressType` - HOME, WORK, BILLING, SHIPPING, OTHER
-- `ActivityType` - Various customer activities
-- `NotificationType` - Different notification types
+- `BookingType` - HOTEL_ROOM, RESTAURANT_TABLE, HALL_EVENT
+- `BookingStatus` - PENDING, CONFIRMED, CHECKED_IN, CHECKED_OUT, CANCELLED, NO_SHOW
+- `OrderType` - FOOD_DELIVERY, RESTAURANT_DINE_IN, ROOM_SERVICE
+- `OrderStatus` - PENDING, CONFIRMED, PREPARING, READY, OUT_FOR_DELIVERY, DELIVERED, CANCELLED, REFUNDED
+- `ReviewType` - HOTEL_ROOM, RESTAURANT, FOOD_ITEM, SERVICE, DELIVERY
+- `ActivityType` - LOGIN, LOGOUT, PROFILE_UPDATE, BOOKING_CREATED, ORDER_PLACED, REVIEW_POSTED, PASSWORD_CHANGED, EMAIL_VERIFIED, PHONE_VERIFIED
+- `NotificationType` - BOOKING_CONFIRMATION, ORDER_UPDATE, PAYMENT_RECEIPT, PROMOTION, REMINDER, SYSTEM_ALERT, REVIEW_REQUEST, LOYALTY_POINTS
 - `LoyaltyPointType` - EARNED, REDEEMED, EXPIRED, BONUS, REFERRAL
 
 ## GraphQL API Usage
@@ -194,6 +207,51 @@ subscription {
 }
 ```
 
+## WebSocket API Usage
+
+### WebSocket Connection
+```javascript
+const ws = new WebSocket('ws://localhost:3003/ws');
+
+// Authenticate connection
+ws.send(JSON.stringify({
+  type: 'authenticate',
+  data: {
+    token: 'jwt-token',
+    customerId: 'customer_123'
+  }
+}));
+
+// Subscribe to customer events
+ws.send(JSON.stringify({
+  type: 'subscribe',
+  data: {
+    topic: 'customer_updated',
+    customerId: 'customer_123'
+  }
+}));
+
+// Handle incoming messages
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  console.log('Received:', message);
+};
+```
+
+### WebSocket Message Types
+- `authenticate` - Authenticate with JWT token
+- `subscribe` - Subscribe to specific events
+- `unsubscribe` - Unsubscribe from events
+- `ping` - Keep connection alive
+- `customer_update` - Update customer data
+
+### Real-time Events
+- `customer_created` - New customer registered
+- `customer_updated` - Customer profile updated
+- `customer_verified` - Customer email verified
+- `customer_address_added` - New address added
+- `customer_notification_sent` - Notification sent
+
 ## gRPC API Usage
 
 ### gRPC Endpoint
@@ -236,8 +294,10 @@ PORT=3003
 NODE_ENV=development
 SERVICE_NAME=customer-service
 
-# Database Configuration
-DATABASE_URL="mongodb://localhost:27017/rubizz_customer_db"
+# Database Configuration (MongoDB Atlas connection string)
+DATABASE_URL="mongodb+srv://username:password@cluster.mongodb.net/rubizz_customer_db?retryWrites=true&w=majority"
+# Or for local MongoDB:
+# DATABASE_URL="mongodb://localhost:27017/rubizz_customer_db"
 
 # Redis Service Configuration
 REDIS_SERVICE_URL=https://rubizz-redis-service.onrender.com/api/v1/redis
@@ -300,17 +360,14 @@ npm install
 cp env.example .env
 
 # Update environment variables
-# Edit .env with your configuration
-
-# Generate Prisma client
-npx prisma generate
-
-# Run database migrations
-npx prisma migrate dev
+# Edit .env with your MongoDB Atlas connection string
+# DATABASE_URL="mongodb+srv://username:password@cluster.mongodb.net/rubizz_customer_db?retryWrites=true&w=majority"
 
 # Start development server
 npm run dev
 ```
+
+**Note**: The service uses Mongoose ODM with MongoDB. The database schema is automatically created when you first run the application. No migration scripts are required. Ensure your `DATABASE_URL` is correctly configured in the `.env` file.
 
 ### Production Setup
 ```bash
@@ -321,16 +378,36 @@ npm run build
 npm start
 ```
 
-## Multi-Protocol Architecture
+## 🏛️ Clean Architecture Implementation
 
-This service implements a modern microservice architecture supporting multiple communication protocols:
+This service implements a **clean architecture** pattern with proper separation of concerns:
 
-### Protocol Overview
-- **REST API** - Traditional HTTP endpoints for web applications
-- **GraphQL API** - Flexible queries with real-time subscriptions
-- **gRPC Server** - High-performance internal service communication
-- **WebSocket** - Real-time bidirectional communication
-- **Kafka Integration** - Event-driven architecture for reliable messaging
+### Architecture Layers
+
+#### 1. Business Service Layer (`CustomerBusinessService`)
+- **Single Source of Truth** - All business logic centralized
+- **Caching Integration** - Redis caching for performance
+- **Event Publishing** - Kafka events for decoupled communication
+- **Email Integration** - Welcome emails and notifications
+- **Activity Logging** - Comprehensive audit trail
+
+#### 2. Controller Layer
+- **REST Controller** - HTTP/REST endpoints for web clients
+- **GraphQL Controller** - Flexible API for mobile/web clients  
+- **gRPC Controller** - High-performance internal communication
+- **Protocol Mapping** - Clean data transformation between protocols
+
+#### 3. WebSocket Server
+- **Real-time Communication** - Bidirectional WebSocket connections
+- **Event Broadcasting** - Publish events to subscribed clients
+- **Connection Management** - Handle client connections and subscriptions
+- **Authentication** - Customer-specific access control
+
+#### 4. Event-Driven Architecture
+- **Kafka Integration** - Reliable event streaming
+- **Event Publishing** - Customer events (created, updated, verified)
+- **Event Consumption** - Process events from other services
+- **Event Sourcing** - Complete audit trail of customer changes
 
 ### Service Integration
 - **API Gateway** - Routes external requests to appropriate protocols
@@ -349,37 +426,48 @@ This service implements a modern microservice architecture supporting multiple c
 - `npm run lint:fix` - Fix ESLint errors
 
 ### Database Management
+
+The service uses **Mongoose ODM** for MongoDB. Schema definitions are in `src/schemas/CustomerSchema.ts`.
+
+#### MongoDB Connection
+- Connection is handled automatically via Mongoose
+- Ensure `DATABASE_URL` is set in your `.env` file
+- Supports MongoDB Atlas and local MongoDB instances
+
+#### Schema Management
+- All Mongoose schemas are defined in `src/schemas/CustomerSchema.ts`
+- Models are automatically registered when the application starts
+- Indexes are created automatically based on schema definitions
+
+#### Manual Database Operations
 ```bash
-# Generate Prisma client
-npx prisma generate
+# Connect to MongoDB (using mongosh)
+mongosh "your-connection-string"
 
-# Push schema changes to MongoDB
-npx prisma db push
+# View collections
+show collections
 
-# Reset database
-npx prisma db reset
+# View customer data
+db.customers.find().pretty()
 
-# View database in Prisma Studio
-npx prisma studio
-
-# Create migration
-npx prisma migrate dev --name migration_name
+# Drop a collection (use with caution)
+db.customers.drop()
 ```
 
 ## Architecture
 
 ### Microservice Design
 - **Independent Service**: Can be deployed and scaled independently
-- **Database per Service**: Own MongoDB database with Prisma ORM
+- **Database per Service**: Own MongoDB database with Mongoose ODM
 - **Multi-Protocol**: Supports REST, GraphQL, gRPC, WebSocket, and Kafka
 - **Event-Driven**: Communicates via Kafka events and API calls
 - **Stateless**: No session state stored in service
 
 ### Dependencies
-- **Database**: MongoDB with Prisma ORM
+- **Database**: MongoDB with Mongoose ODM (Object Document Mapper)
 - **Cache**: Redis Service for session and data caching
 - **Email**: Nodemailer with SMTP support
-- **Validation**: Joi for request validation
+- **Validation**: Joi for request validation, Mongoose schema validation
 - **Logging**: Winston for structured logging
 - **gRPC**: High-performance internal communication
 - **GraphQL**: Flexible API with real-time subscriptions

@@ -15,6 +15,8 @@ import { Logger } from '@sandip1046/rubizz-shared-libs';
 import GrpcServer from './grpc/GrpcServer';
 import GraphQLServer from './graphql/GraphQLServer';
 import KafkaService from './kafka/KafkaService';
+import { CustomerBusinessService } from './services/CustomerBusinessService';
+import WebSocketServer from './websocket/WebSocketServer';
 
 class CustomerServiceApp {
   private app: express.Application;
@@ -24,6 +26,8 @@ class CustomerServiceApp {
   private grpcServer!: GrpcServer;
   private graphqlServer!: GraphQLServer;
   private kafkaService!: KafkaService;
+  private websocketServer!: WebSocketServer;
+  private customerBusinessService!: CustomerBusinessService;
   private customerController!: CustomerController;
   private healthController!: HealthController;
   private logger: Logger;
@@ -98,7 +102,6 @@ class CustomerServiceApp {
     try {
       // Initialize controllers
       this.healthController = new HealthController();
-      this.customerController = new CustomerController();
 
       // Initialize Kafka service if enabled
       if (config.kafka.enabled) {
@@ -106,6 +109,16 @@ class CustomerServiceApp {
         await this.kafkaService.initialize();
         this.logger.info('Kafka service initialized successfully');
       }
+
+      // Initialize business service
+      this.customerBusinessService = new CustomerBusinessService(this.kafkaService);
+
+      // Initialize controllers with business service
+      this.customerController = new CustomerController(this.customerBusinessService);
+
+      // Initialize WebSocket server
+      this.websocketServer = new WebSocketServer(this.httpServer, this.customerBusinessService);
+      this.logger.info('WebSocket server initialized successfully');
 
       // Initialize gRPC server
       this.grpcServer = new GrpcServer(this.customerController, this.healthController);
@@ -303,6 +316,12 @@ class CustomerServiceApp {
         if (this.graphqlServer) {
           await this.graphqlServer.stop();
           this.logger.info('GraphQL server stopped successfully');
+        }
+
+        // Stop WebSocket server
+        if (this.websocketServer) {
+          this.websocketServer.stop();
+          this.logger.info('WebSocket server stopped successfully');
         }
 
         // Disconnect Kafka service

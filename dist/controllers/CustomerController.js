@@ -1,52 +1,18 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CustomerController = void 0;
-const Customer_1 = require("../models/Customer");
-const DatabaseConnection_1 = __importDefault(require("../database/DatabaseConnection"));
 const rubizz_shared_libs_1 = require("@sandip1046/rubizz-shared-libs");
 class CustomerController {
-    constructor() {
+    constructor(customerService) {
         this.createCustomer = async (req, res, next) => {
             try {
                 const customerData = req.body;
-                const existingCustomer = await this.customerModel.getCustomerByEmail(customerData.email);
-                if (existingCustomer) {
-                    res.status(409).json({
-                        success: false,
-                        message: 'Customer with this email already exists',
-                        code: 'CUSTOMER_EXISTS',
-                    });
-                }
-                if (customerData.phone) {
-                    const existingPhoneCustomer = await this.customerModel.getCustomerByPhone(customerData.phone);
-                    if (existingPhoneCustomer) {
-                        res.status(409).json({
-                            success: false,
-                            message: 'Customer with this phone number already exists',
-                            code: 'PHONE_EXISTS',
-                        });
-                    }
-                }
-                const customer = await this.customerModel.createCustomer(customerData);
-                this.logger.info('Customer created successfully', { customerId: customer.id, email: customer.email });
+                const requestId = req.requestId;
+                const customer = await this.customerService.createCustomer(customerData, requestId);
                 res.status(201).json({
                     success: true,
                     message: 'Customer created successfully',
-                    data: {
-                        customer: {
-                            id: customer.id,
-                            email: customer.email,
-                            firstName: customer.firstName,
-                            lastName: customer.lastName,
-                            phone: customer.phone,
-                            isVerified: customer.isVerified,
-                            isActive: customer.isActive,
-                            createdAt: customer.createdAt,
-                        },
-                    },
+                    data: { customer },
                 });
             }
             catch (error) {
@@ -57,14 +23,7 @@ class CustomerController {
         this.getCustomerById = async (req, res, next) => {
             try {
                 const { customerId } = req.params;
-                const customer = await this.customerModel.getCustomerById(customerId);
-                if (!customer) {
-                    res.status(404).json({
-                        success: false,
-                        message: 'Customer not found',
-                        code: 'CUSTOMER_NOT_FOUND',
-                    });
-                }
+                const customer = await this.customerService.getCustomerById(customerId);
                 res.status(200).json({
                     success: true,
                     message: 'Customer retrieved successfully',
@@ -85,15 +44,9 @@ class CustomerController {
                         message: 'Email parameter is required',
                         code: 'EMAIL_REQUIRED',
                     });
+                    return;
                 }
-                const customer = await this.customerModel.getCustomerByEmail(email);
-                if (!customer) {
-                    res.status(404).json({
-                        success: false,
-                        message: 'Customer not found',
-                        code: 'CUSTOMER_NOT_FOUND',
-                    });
-                }
+                const customer = await this.customerService.getCustomerByEmail(email);
                 res.status(200).json({
                     success: true,
                     message: 'Customer retrieved successfully',
@@ -109,26 +62,8 @@ class CustomerController {
             try {
                 const { customerId } = req.params;
                 const updateData = req.body;
-                const existingCustomer = await this.customerModel.getCustomerById(customerId);
-                if (!existingCustomer) {
-                    res.status(404).json({
-                        success: false,
-                        message: 'Customer not found',
-                        code: 'CUSTOMER_NOT_FOUND',
-                    });
-                }
-                if (updateData.phone && updateData.phone !== existingCustomer.phone) {
-                    const existingPhoneCustomer = await this.customerModel.getCustomerByPhone(updateData.phone);
-                    if (existingPhoneCustomer && existingPhoneCustomer.id !== customerId) {
-                        res.status(409).json({
-                            success: false,
-                            message: 'Customer with this phone number already exists',
-                            code: 'PHONE_EXISTS',
-                        });
-                    }
-                }
-                const customer = await this.customerModel.updateCustomer(customerId, updateData);
-                this.logger.info('Customer updated successfully', { customerId });
+                const requestId = req.requestId;
+                const customer = await this.customerService.updateCustomer(customerId, updateData, requestId);
                 res.status(200).json({
                     success: true,
                     message: 'Customer updated successfully',
@@ -143,16 +78,8 @@ class CustomerController {
         this.deleteCustomer = async (req, res, next) => {
             try {
                 const { customerId } = req.params;
-                const existingCustomer = await this.customerModel.getCustomerById(customerId);
-                if (!existingCustomer) {
-                    res.status(404).json({
-                        success: false,
-                        message: 'Customer not found',
-                        code: 'CUSTOMER_NOT_FOUND',
-                    });
-                }
-                await this.customerModel.deleteCustomer(customerId);
-                this.logger.info('Customer deleted successfully', { customerId });
+                const requestId = req.requestId;
+                await this.customerService.deleteCustomer(customerId, requestId);
                 res.status(200).json({
                     success: true,
                     message: 'Customer deleted successfully',
@@ -172,7 +99,7 @@ class CustomerController {
                     sortBy: req.query['sortBy'] || 'createdAt',
                     sortOrder: req.query['sortOrder'] || 'desc',
                 };
-                const result = await this.customerModel.searchCustomers(filters, pagination);
+                const result = await this.customerService.searchCustomers(filters, pagination);
                 res.status(200).json({
                     success: true,
                     message: 'Customers retrieved successfully',
@@ -188,16 +115,8 @@ class CustomerController {
             try {
                 const { customerId } = req.params;
                 const profileData = req.body;
-                const existingCustomer = await this.customerModel.getCustomerById(customerId);
-                if (!existingCustomer) {
-                    res.status(404).json({
-                        success: false,
-                        message: 'Customer not found',
-                        code: 'CUSTOMER_NOT_FOUND',
-                    });
-                }
-                const profile = await this.customerModel.updateCustomerProfile(customerId, profileData);
-                this.logger.info('Customer profile updated successfully', { customerId });
+                const requestId = req.requestId;
+                const profile = await this.customerService.updateCustomerProfile(customerId, profileData, requestId);
                 res.status(200).json({
                     success: true,
                     message: 'Customer profile updated successfully',
@@ -213,16 +132,8 @@ class CustomerController {
             try {
                 const { customerId } = req.params;
                 const preferencesData = req.body;
-                const existingCustomer = await this.customerModel.getCustomerById(customerId);
-                if (!existingCustomer) {
-                    res.status(404).json({
-                        success: false,
-                        message: 'Customer not found',
-                        code: 'CUSTOMER_NOT_FOUND',
-                    });
-                }
-                const preferences = await this.customerModel.updateCustomerPreferences(customerId, preferencesData);
-                this.logger.info('Customer preferences updated successfully', { customerId });
+                const requestId = req.requestId;
+                const preferences = await this.customerService.updateCustomerPreferences(customerId, preferencesData, requestId);
                 res.status(200).json({
                     success: true,
                     message: 'Customer preferences updated successfully',
@@ -238,16 +149,8 @@ class CustomerController {
             try {
                 const { customerId } = req.params;
                 const addressData = req.body;
-                const existingCustomer = await this.customerModel.getCustomerById(customerId);
-                if (!existingCustomer) {
-                    res.status(404).json({
-                        success: false,
-                        message: 'Customer not found',
-                        code: 'CUSTOMER_NOT_FOUND',
-                    });
-                }
-                const address = await this.customerModel.addCustomerAddress(customerId, addressData);
-                this.logger.info('Customer address added successfully', { customerId, addressId: address.id });
+                const requestId = req.requestId;
+                const address = await this.customerService.addCustomerAddress(customerId, addressData, requestId);
                 res.status(201).json({
                     success: true,
                     message: 'Customer address added successfully',
@@ -263,8 +166,8 @@ class CustomerController {
             try {
                 const { addressId } = req.params;
                 const addressData = req.body;
-                const address = await this.customerModel.updateCustomerAddress(addressId, addressData);
-                this.logger.info('Customer address updated successfully', { addressId });
+                const requestId = req.requestId;
+                const address = await this.customerService.updateCustomerAddress(addressId, addressData, requestId);
                 res.status(200).json({
                     success: true,
                     message: 'Customer address updated successfully',
@@ -279,8 +182,8 @@ class CustomerController {
         this.deleteCustomerAddress = async (req, res, next) => {
             try {
                 const { addressId } = req.params;
-                await this.customerModel.deleteCustomerAddress(addressId);
-                this.logger.info('Customer address deleted successfully', { addressId });
+                const requestId = req.requestId;
+                await this.customerService.deleteCustomerAddress(addressId, requestId);
                 res.status(200).json({
                     success: true,
                     message: 'Customer address deleted successfully',
@@ -294,15 +197,7 @@ class CustomerController {
         this.getCustomerAddresses = async (req, res, next) => {
             try {
                 const { customerId } = req.params;
-                const existingCustomer = await this.customerModel.getCustomerById(customerId);
-                if (!existingCustomer) {
-                    res.status(404).json({
-                        success: false,
-                        message: 'Customer not found',
-                        code: 'CUSTOMER_NOT_FOUND',
-                    });
-                }
-                const addresses = await this.customerModel.getCustomerAddresses(customerId);
+                const addresses = await this.customerService.getCustomerAddresses(customerId);
                 res.status(200).json({
                     success: true,
                     message: 'Customer addresses retrieved successfully',
@@ -317,16 +212,8 @@ class CustomerController {
         this.verifyCustomer = async (req, res, next) => {
             try {
                 const { customerId } = req.params;
-                const existingCustomer = await this.customerModel.getCustomerById(customerId);
-                if (!existingCustomer) {
-                    res.status(404).json({
-                        success: false,
-                        message: 'Customer not found',
-                        code: 'CUSTOMER_NOT_FOUND',
-                    });
-                }
-                const customer = await this.customerModel.verifyCustomer(customerId);
-                this.logger.info('Customer verified successfully', { customerId });
+                const requestId = req.requestId;
+                const customer = await this.customerService.verifyCustomer(customerId, requestId);
                 res.status(200).json({
                     success: true,
                     message: 'Customer verified successfully',
@@ -340,7 +227,7 @@ class CustomerController {
         };
         this.getCustomerStats = async (_req, res, next) => {
             try {
-                const stats = await this.customerModel.getCustomerStats();
+                const stats = await this.customerService.getCustomerStats();
                 res.status(200).json({
                     success: true,
                     message: 'Customer statistics retrieved successfully',
@@ -355,8 +242,9 @@ class CustomerController {
         this.updateLastLogin = async (req, res, next) => {
             try {
                 const { customerId } = req.params;
-                await this.customerModel.updateLastLogin(customerId);
-                this.logger.info('Last login updated successfully', { customerId });
+                const { ipAddress, userAgent } = req.body;
+                const requestId = req.requestId;
+                await this.customerService.updateLastLogin(customerId, ipAddress, userAgent, requestId);
                 res.status(200).json({
                     success: true,
                     message: 'Last login updated successfully',
@@ -367,17 +255,12 @@ class CustomerController {
                 next(error);
             }
         };
-        const prisma = DatabaseConnection_1.default.getInstance().getPrismaClient();
-        this.customerModel = new Customer_1.CustomerModel(prisma);
+        this.customerService = customerService;
         this.logger = rubizz_shared_libs_1.Logger.getInstance('rubizz-customer-service', process.env['NODE_ENV'] || 'development');
     }
     async getCustomerByIdGraphQL(customerId) {
         try {
-            const customer = await this.customerModel.getCustomerById(customerId);
-            if (!customer) {
-                throw new Error('Customer not found');
-            }
-            return customer;
+            return await this.customerService.getCustomerById(customerId);
         }
         catch (error) {
             this.logger.error('Failed to get customer by ID:', error);
@@ -386,11 +269,7 @@ class CustomerController {
     }
     async getCustomerByEmailGraphQL(email) {
         try {
-            const customer = await this.customerModel.getCustomerByEmail(email);
-            if (!customer) {
-                throw new Error('Customer not found');
-            }
-            return customer;
+            return await this.customerService.getCustomerByEmail(email);
         }
         catch (error) {
             this.logger.error('Failed to get customer by email:', error);
@@ -399,8 +278,7 @@ class CustomerController {
     }
     async searchCustomersGraphQL(filters, pagination) {
         try {
-            const result = await this.customerModel.searchCustomers(filters, pagination);
-            return result;
+            return await this.customerService.searchCustomers(filters, pagination);
         }
         catch (error) {
             this.logger.error('Failed to search customers:', error);
@@ -409,8 +287,7 @@ class CustomerController {
     }
     async getCustomerStatsGraphQL() {
         try {
-            const stats = await this.customerModel.getCustomerStats();
-            return stats;
+            return await this.customerService.getCustomerStats();
         }
         catch (error) {
             this.logger.error('Failed to get customer stats:', error);
@@ -419,8 +296,7 @@ class CustomerController {
     }
     async createCustomerGraphQL(input) {
         try {
-            const customer = await this.customerModel.createCustomer(input);
-            return customer;
+            return await this.customerService.createCustomer(input);
         }
         catch (error) {
             this.logger.error('Failed to create customer:', error);
@@ -429,8 +305,7 @@ class CustomerController {
     }
     async updateCustomerGraphQL(customerId, input) {
         try {
-            const customer = await this.customerModel.updateCustomer(customerId, input);
-            return customer;
+            return await this.customerService.updateCustomer(customerId, input);
         }
         catch (error) {
             this.logger.error('Failed to update customer:', error);
@@ -439,8 +314,7 @@ class CustomerController {
     }
     async deleteCustomerGraphQL(customerId) {
         try {
-            await this.customerModel.deleteCustomer(customerId);
-            return true;
+            return await this.customerService.deleteCustomer(customerId);
         }
         catch (error) {
             this.logger.error('Failed to delete customer:', error);
@@ -449,8 +323,7 @@ class CustomerController {
     }
     async updateCustomerProfileGraphQL(customerId, input) {
         try {
-            const profile = await this.customerModel.updateCustomerProfile(customerId, input);
-            return profile;
+            return await this.customerService.updateCustomerProfile(customerId, input);
         }
         catch (error) {
             this.logger.error('Failed to update customer profile:', error);
@@ -459,8 +332,7 @@ class CustomerController {
     }
     async updateCustomerPreferencesGraphQL(customerId, input) {
         try {
-            const preferences = await this.customerModel.updateCustomerPreferences(customerId, input);
-            return preferences;
+            return await this.customerService.updateCustomerPreferences(customerId, input);
         }
         catch (error) {
             this.logger.error('Failed to update customer preferences:', error);
@@ -469,8 +341,7 @@ class CustomerController {
     }
     async addCustomerAddressGraphQL(customerId, input) {
         try {
-            const address = await this.customerModel.addCustomerAddress(customerId, input);
-            return address;
+            return await this.customerService.addCustomerAddress(customerId, input);
         }
         catch (error) {
             this.logger.error('Failed to add customer address:', error);
@@ -479,8 +350,7 @@ class CustomerController {
     }
     async updateCustomerAddressGraphQL(addressId, input) {
         try {
-            const address = await this.customerModel.updateCustomerAddress(addressId, input);
-            return address;
+            return await this.customerService.updateCustomerAddress(addressId, input);
         }
         catch (error) {
             this.logger.error('Failed to update customer address:', error);
@@ -489,8 +359,7 @@ class CustomerController {
     }
     async deleteCustomerAddressGraphQL(addressId) {
         try {
-            const customerId = await this.customerModel.deleteCustomerAddress(addressId);
-            return customerId;
+            return await this.customerService.deleteCustomerAddress(addressId);
         }
         catch (error) {
             this.logger.error('Failed to delete customer address:', error);
@@ -499,8 +368,7 @@ class CustomerController {
     }
     async getCustomerAddressesGraphQL(customerId) {
         try {
-            const addresses = await this.customerModel.getCustomerAddresses(customerId);
-            return addresses;
+            return await this.customerService.getCustomerAddresses(customerId);
         }
         catch (error) {
             this.logger.error('Failed to get customer addresses:', error);
@@ -509,8 +377,7 @@ class CustomerController {
     }
     async verifyCustomerGraphQL(customerId) {
         try {
-            const customer = await this.customerModel.verifyCustomer(customerId);
-            return customer;
+            return await this.customerService.verifyCustomer(customerId);
         }
         catch (error) {
             this.logger.error('Failed to verify customer:', error);
@@ -519,8 +386,7 @@ class CustomerController {
     }
     async updateLastLoginGraphQL(customerId, ipAddress, userAgent) {
         try {
-            await this.customerModel.updateLastLogin(customerId, ipAddress, userAgent);
-            return true;
+            return await this.customerService.updateLastLogin(customerId, ipAddress, userAgent);
         }
         catch (error) {
             this.logger.error('Failed to update last login:', error);
@@ -529,8 +395,7 @@ class CustomerController {
     }
     async addLoyaltyPointsGraphQL(customerId, input) {
         try {
-            const loyaltyPoint = await this.customerModel.addLoyaltyPoints(customerId, input.points, input.type, input.description, input.referenceId);
-            return loyaltyPoint;
+            return await this.customerService.addLoyaltyPoints(customerId, input.points, input.type, input.description, input.referenceId);
         }
         catch (error) {
             this.logger.error('Failed to add loyalty points:', error);
@@ -539,8 +404,7 @@ class CustomerController {
     }
     async redeemLoyaltyPointsGraphQL(customerId, input) {
         try {
-            const loyaltyPoint = await this.customerModel.redeemLoyaltyPoints(customerId, input.points, input.description, input.referenceId);
-            return loyaltyPoint;
+            return await this.customerService.redeemLoyaltyPoints(customerId, input.points, input.description, input.referenceId);
         }
         catch (error) {
             this.logger.error('Failed to redeem loyalty points:', error);
@@ -549,8 +413,7 @@ class CustomerController {
     }
     async logCustomerActivityGraphQL(customerId, input) {
         try {
-            await this.customerModel.logCustomerActivity(customerId, input.activityType, input.description, input.metadata, input.ipAddress, input.userAgent);
-            return true;
+            return await this.customerService.logCustomerActivity(customerId, input.activityType, input.description, input.metadata, input.ipAddress, input.userAgent);
         }
         catch (error) {
             this.logger.error('Failed to log customer activity:', error);
@@ -559,8 +422,7 @@ class CustomerController {
     }
     async sendCustomerNotificationGraphQL(customerId, input) {
         try {
-            const notification = await this.customerModel.sendCustomerNotification(customerId, input.type, input.title, input.message, input.metadata);
-            return notification;
+            return await this.customerService.sendCustomerNotification(customerId, input.type, input.title, input.message, input.metadata);
         }
         catch (error) {
             this.logger.error('Failed to send customer notification:', error);
@@ -569,7 +431,7 @@ class CustomerController {
     }
     async createCustomerGrpc(call, callback) {
         try {
-            const customer = await this.customerModel.createCustomer(call.request);
+            const customer = await this.customerService.createCustomer(call.request, call.metadata?.requestId);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -589,14 +451,7 @@ class CustomerController {
     }
     async getCustomerByIdGrpc(call, callback) {
         try {
-            const customer = await this.customerModel.getCustomerById(call.request.customer_id);
-            if (!customer) {
-                callback({
-                    code: 404,
-                    message: 'Customer not found',
-                });
-                return;
-            }
+            const customer = await this.customerService.getCustomerById(call.request.customer_id);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -609,21 +464,14 @@ class CustomerController {
         catch (error) {
             this.logger.error('Failed to get customer by ID via gRPC:', error);
             callback({
-                code: 500,
-                message: 'Failed to retrieve customer',
+                code: 404,
+                message: 'Customer not found',
             });
         }
     }
     async getCustomerByEmailGrpc(call, callback) {
         try {
-            const customer = await this.customerModel.getCustomerByEmail(call.request.email);
-            if (!customer) {
-                callback({
-                    code: 404,
-                    message: 'Customer not found',
-                });
-                return;
-            }
+            const customer = await this.customerService.getCustomerByEmail(call.request.email);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -636,14 +484,14 @@ class CustomerController {
         catch (error) {
             this.logger.error('Failed to get customer by email via gRPC:', error);
             callback({
-                code: 500,
-                message: 'Failed to retrieve customer',
+                code: 404,
+                message: 'Customer not found',
             });
         }
     }
     async updateCustomerGrpc(call, callback) {
         try {
-            const customer = await this.customerModel.updateCustomer(call.request.customer_id, call.request);
+            const customer = await this.customerService.updateCustomer(call.request.customer_id, call.request, call.metadata?.requestId);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -663,7 +511,7 @@ class CustomerController {
     }
     async deleteCustomerGrpc(call, callback) {
         try {
-            await this.customerModel.deleteCustomer(call.request.customer_id);
+            await this.customerService.deleteCustomer(call.request.customer_id, call.metadata?.requestId);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -682,7 +530,7 @@ class CustomerController {
     }
     async searchCustomersGrpc(call, callback) {
         try {
-            const result = await this.customerModel.searchCustomers(call.request, call.request.pagination);
+            const result = await this.customerService.searchCustomers(call.request, call.request.pagination);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -710,7 +558,7 @@ class CustomerController {
     }
     async updateCustomerProfileGrpc(call, callback) {
         try {
-            const profile = await this.customerModel.updateCustomerProfile(call.request.customer_id, call.request);
+            const profile = await this.customerService.updateCustomerProfile(call.request.customer_id, call.request, call.metadata?.requestId);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -730,7 +578,7 @@ class CustomerController {
     }
     async updateCustomerPreferencesGrpc(call, callback) {
         try {
-            const preferences = await this.customerModel.updateCustomerPreferences(call.request.customer_id, call.request);
+            const preferences = await this.customerService.updateCustomerPreferences(call.request.customer_id, call.request, call.metadata?.requestId);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -750,7 +598,7 @@ class CustomerController {
     }
     async addCustomerAddressGrpc(call, callback) {
         try {
-            const address = await this.customerModel.addCustomerAddress(call.request.customer_id, call.request);
+            const address = await this.customerService.addCustomerAddress(call.request.customer_id, call.request, call.metadata?.requestId);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -770,7 +618,7 @@ class CustomerController {
     }
     async updateCustomerAddressGrpc(call, callback) {
         try {
-            const address = await this.customerModel.updateCustomerAddress(call.request.address_id, call.request);
+            const address = await this.customerService.updateCustomerAddress(call.request.address_id, call.request, call.metadata?.requestId);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -790,7 +638,7 @@ class CustomerController {
     }
     async deleteCustomerAddressGrpc(call, callback) {
         try {
-            await this.customerModel.deleteCustomerAddress(call.request.address_id);
+            await this.customerService.deleteCustomerAddress(call.request.address_id, call.metadata?.requestId);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -809,7 +657,7 @@ class CustomerController {
     }
     async getCustomerAddressesGrpc(call, callback) {
         try {
-            const addresses = await this.customerModel.getCustomerAddresses(call.request.customer_id);
+            const addresses = await this.customerService.getCustomerAddresses(call.request.customer_id);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -829,7 +677,7 @@ class CustomerController {
     }
     async verifyCustomerGrpc(call, callback) {
         try {
-            const customer = await this.customerModel.verifyCustomer(call.request.customer_id);
+            const customer = await this.customerService.verifyCustomer(call.request.customer_id, call.metadata?.requestId);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -849,7 +697,7 @@ class CustomerController {
     }
     async updateLastLoginGrpc(call, callback) {
         try {
-            await this.customerModel.updateLastLogin(call.request.customer_id, call.request.ip_address, call.request.user_agent);
+            await this.customerService.updateLastLogin(call.request.customer_id, call.request.ip_address, call.request.user_agent, call.metadata?.requestId);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -868,7 +716,7 @@ class CustomerController {
     }
     async getCustomerStatsGrpc(_call, callback) {
         try {
-            const stats = await this.customerModel.getCustomerStats();
+            const stats = await this.customerService.getCustomerStats();
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -895,7 +743,7 @@ class CustomerController {
     }
     async addLoyaltyPointsGrpc(call, callback) {
         try {
-            const loyaltyPoint = await this.customerModel.addLoyaltyPoints(call.request.customer_id, call.request.points, call.request.type, call.request.description, call.request.reference_id);
+            const loyaltyPoint = await this.customerService.addLoyaltyPoints(call.request.customer_id, call.request.points, call.request.type, call.request.description, call.request.reference_id, call.metadata?.requestId);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -915,7 +763,7 @@ class CustomerController {
     }
     async redeemLoyaltyPointsGrpc(call, callback) {
         try {
-            const loyaltyPoint = await this.customerModel.redeemLoyaltyPoints(call.request.customer_id, call.request.points, call.request.description, call.request.reference_id);
+            const loyaltyPoint = await this.customerService.redeemLoyaltyPoints(call.request.customer_id, call.request.points, call.request.description, call.request.reference_id, call.metadata?.requestId);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -935,7 +783,7 @@ class CustomerController {
     }
     async logCustomerActivityGrpc(call, callback) {
         try {
-            await this.customerModel.logCustomerActivity(call.request.customer_id, call.request.activity_type, call.request.description, call.request.metadata_json, call.request.ip_address, call.request.user_agent);
+            await this.customerService.logCustomerActivity(call.request.customer_id, call.request.activity_type, call.request.description, call.request.metadata_json, call.request.ip_address, call.request.user_agent, call.metadata?.requestId);
             callback(null, {
                 apiResponse: {
                     success: true,
@@ -954,7 +802,7 @@ class CustomerController {
     }
     async sendCustomerNotificationGrpc(call, callback) {
         try {
-            const notification = await this.customerModel.sendCustomerNotification(call.request.customer_id, call.request.type, call.request.title, call.request.message, call.request.metadata_json);
+            const notification = await this.customerService.sendCustomerNotification(call.request.customer_id, call.request.type, call.request.title, call.request.message, call.request.metadata_json, call.metadata?.requestId);
             callback(null, {
                 apiResponse: {
                     success: true,

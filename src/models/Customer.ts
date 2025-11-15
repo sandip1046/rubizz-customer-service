@@ -1,4 +1,14 @@
-import { PrismaClient } from '@prisma/client';
+import {
+  Customer,
+  CustomerProfile,
+  CustomerPreferences,
+  CustomerAddress,
+  CustomerLoyaltyPoint,
+  CustomerActivity,
+  CustomerNotification,
+  Gender,
+  AddressType,
+} from '../schemas/CustomerSchema';
 import { config } from '../config/config';
 import { Logger } from '@sandip1046/rubizz-shared-libs';
 
@@ -8,14 +18,14 @@ export interface CreateCustomerData {
   firstName: string;
   lastName: string;
   dateOfBirth?: Date;
-  gender?: 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY';
+  gender?: Gender;
 }
 
 export interface UpdateCustomerData {
   firstName?: string;
   lastName?: string;
   dateOfBirth?: Date;
-  gender?: 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY';
+  gender?: Gender;
   phone?: string;
 }
 
@@ -39,7 +49,7 @@ export interface CustomerPreferencesData {
 }
 
 export interface CustomerAddressData {
-  type: 'HOME' | 'WORK' | 'BILLING' | 'SHIPPING' | 'OTHER';
+  type: AddressType;
   addressLine1: string;
   addressLine2?: string;
   city: string;
@@ -70,31 +80,27 @@ export interface CustomerPaginationOptions {
 }
 
 export class CustomerModel {
-  private prisma: PrismaClient;
   private logger: Logger;
 
-  constructor(prisma: PrismaClient) {
-    this.prisma = prisma;
+  constructor() {
     this.logger = Logger.getInstance('rubizz-customer-service', config.nodeEnv);
   }
 
   // Create a new customer
   async createCustomer(data: CreateCustomerData) {
     try {
-      const customer = await this.prisma.customer.create({
-        data: {
-          ...data,
-          isVerified: !config.customer.verificationRequired,
-        },
-        include: {
-          profile: true,
-          preferences: true,
-          addresses: true,
-        },
-      });
+      const customerData: any = {
+        ...data,
+        isVerified: !config.customer.verificationRequired,
+      };
 
-      this.logger.info('Customer created successfully', { customerId: customer.id });
-      return customer;
+      const customer = await Customer.create(customerData);
+
+      // Populate related data
+      const populatedCustomer = await this.getCustomerById(customer._id);
+
+      this.logger.info('Customer created successfully', { customerId: customer._id });
+      return populatedCustomer;
     } catch (error) {
       this.logger.error('Failed to create customer:', error as Error);
       throw error;
@@ -104,24 +110,30 @@ export class CustomerModel {
   // Get customer by ID
   async getCustomerById(id: string) {
     try {
-      const customer = await this.prisma.customer.findUnique({
-        where: { id },
-        include: {
-          profile: true,
-          preferences: true,
-          addresses: true,
-          loyaltyPoints: {
-            orderBy: { createdAt: 'desc' },
-            take: 10,
-          },
-          activities: {
-            orderBy: { createdAt: 'desc' },
-            take: 10,
-          },
-        },
-      });
+      const customer = await Customer.findById(id).lean();
 
-      return customer;
+      if (!customer) {
+        return null;
+      }
+
+      // Get related data
+      const [profile, preferences, addresses, loyaltyPoints, activities] = await Promise.all([
+        CustomerProfile.findOne({ customerId: id }).lean(),
+        CustomerPreferences.findOne({ customerId: id }).lean(),
+        CustomerAddress.find({ customerId: id, isActive: true }).sort({ isDefault: -1, createdAt: -1 }).limit(10).lean(),
+        CustomerLoyaltyPoint.find({ customerId: id }).sort({ createdAt: -1 }).limit(10).lean(),
+        CustomerActivity.find({ customerId: id }).sort({ createdAt: -1 }).limit(10).lean(),
+      ]);
+
+      return {
+        id: customer._id,
+        ...customer,
+        profile: profile ? { id: profile._id, ...profile } : null,
+        preferences: preferences ? { id: preferences._id, ...preferences } : null,
+        addresses: addresses.map(addr => ({ id: addr._id, ...addr })),
+        loyaltyPoints: loyaltyPoints.map(lp => ({ id: lp._id, ...lp })),
+        activities: activities.map(act => ({ id: act._id, ...act })),
+      };
     } catch (error) {
       this.logger.error('Failed to get customer by ID:', error as Error);
       throw error;
@@ -131,16 +143,26 @@ export class CustomerModel {
   // Get customer by email
   async getCustomerByEmail(email: string) {
     try {
-      const customer = await this.prisma.customer.findUnique({
-        where: { email },
-        include: {
-          profile: true,
-          preferences: true,
-          addresses: true,
-        },
-      });
+      const customer = await Customer.findOne({ email: email.toLowerCase() }).lean();
 
-      return customer;
+      if (!customer) {
+        return null;
+      }
+
+      // Get related data
+      const [profile, preferences, addresses] = await Promise.all([
+        CustomerProfile.findOne({ customerId: customer._id }).lean(),
+        CustomerPreferences.findOne({ customerId: customer._id }).lean(),
+        CustomerAddress.find({ customerId: customer._id, isActive: true }).lean(),
+      ]);
+
+      return {
+        id: customer._id,
+        ...customer,
+        profile: profile ? { id: profile._id, ...profile } : null,
+        preferences: preferences ? { id: preferences._id, ...preferences } : null,
+        addresses: addresses.map(addr => ({ id: addr._id, ...addr })),
+      };
     } catch (error) {
       this.logger.error('Failed to get customer by email:', error as Error);
       throw error;
@@ -150,16 +172,26 @@ export class CustomerModel {
   // Get customer by phone
   async getCustomerByPhone(phone: string) {
     try {
-      const customer = await this.prisma.customer.findUnique({
-        where: { phone },
-        include: {
-          profile: true,
-          preferences: true,
-          addresses: true,
-        },
-      });
+      const customer = await Customer.findOne({ phone }).lean();
 
-      return customer;
+      if (!customer) {
+        return null;
+      }
+
+      // Get related data
+      const [profile, preferences, addresses] = await Promise.all([
+        CustomerProfile.findOne({ customerId: customer._id }).lean(),
+        CustomerPreferences.findOne({ customerId: customer._id }).lean(),
+        CustomerAddress.find({ customerId: customer._id, isActive: true }).lean(),
+      ]);
+
+      return {
+        id: customer._id,
+        ...customer,
+        profile: profile ? { id: profile._id, ...profile } : null,
+        preferences: preferences ? { id: preferences._id, ...preferences } : null,
+        addresses: addresses.map(addr => ({ id: addr._id, ...addr })),
+      };
     } catch (error) {
       this.logger.error('Failed to get customer by phone:', error as Error);
       throw error;
@@ -169,21 +201,31 @@ export class CustomerModel {
   // Update customer
   async updateCustomer(id: string, data: UpdateCustomerData) {
     try {
-      const customer = await this.prisma.customer.update({
-        where: { id },
-        data: {
-          ...data,
-          updatedAt: new Date(),
-        },
-        include: {
-          profile: true,
-          preferences: true,
-          addresses: true,
-        },
-      });
+      const customer = await Customer.findByIdAndUpdate(
+        id,
+        { ...data, updatedAt: new Date() },
+        { new: true, runValidators: true }
+      ).lean();
+
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      // Get related data
+      const [profile, preferences, addresses] = await Promise.all([
+        CustomerProfile.findOne({ customerId: id }).lean(),
+        CustomerPreferences.findOne({ customerId: id }).lean(),
+        CustomerAddress.find({ customerId: id, isActive: true }).lean(),
+      ]);
 
       this.logger.info('Customer updated successfully', { customerId: id });
-      return customer;
+      return {
+        id: customer._id,
+        ...customer,
+        profile: profile ? { id: profile._id, ...profile } : null,
+        preferences: preferences ? { id: preferences._id, ...preferences } : null,
+        addresses: addresses.map(addr => ({ id: addr._id, ...addr })),
+      };
     } catch (error) {
       this.logger.error('Failed to update customer:', error as Error);
       throw error;
@@ -193,13 +235,15 @@ export class CustomerModel {
   // Delete customer (soft delete)
   async deleteCustomer(id: string) {
     try {
-      const customer = await this.prisma.customer.update({
-        where: { id },
-        data: {
-          isActive: false,
-          updatedAt: new Date(),
-        },
-      });
+      const customer = await Customer.findByIdAndUpdate(
+        id,
+        { isActive: false, updatedAt: new Date() },
+        { new: true }
+      ).lean();
+
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
 
       this.logger.info('Customer deleted successfully', { customerId: id });
       return customer;
@@ -219,65 +263,82 @@ export class CustomerModel {
         sortOrder = 'desc',
       } = pagination;
 
-      const where: any = {};
+      const query: any = {};
 
       if (filters.email) {
-        where.email = { contains: filters.email, mode: 'insensitive' };
+        query.email = { $regex: filters.email, $options: 'i' };
       }
 
       if (filters.phone) {
-        where.phone = { contains: filters.phone };
+        query.phone = { $regex: filters.phone };
       }
 
       if (filters.firstName) {
-        where.firstName = { contains: filters.firstName, mode: 'insensitive' };
+        query.firstName = { $regex: filters.firstName, $options: 'i' };
       }
 
       if (filters.lastName) {
-        where.lastName = { contains: filters.lastName, mode: 'insensitive' };
+        query.lastName = { $regex: filters.lastName, $options: 'i' };
       }
 
       if (filters.isVerified !== undefined) {
-        where.isVerified = filters.isVerified;
+        query.isVerified = filters.isVerified;
       }
 
       if (filters.isActive !== undefined) {
-        where.isActive = filters.isActive;
+        query.isActive = filters.isActive;
       }
 
       if (filters.createdFrom || filters.createdTo) {
-        where.createdAt = {};
+        query.createdAt = {};
         if (filters.createdFrom) {
-          where.createdAt.gte = filters.createdFrom;
+          query.createdAt.$gte = filters.createdFrom;
         }
         if (filters.createdTo) {
-          where.createdAt.lte = filters.createdTo;
+          query.createdAt.$lte = filters.createdTo;
         }
       }
 
       if (filters.lastLoginFrom || filters.lastLoginTo) {
-        where.lastLoginAt = {};
+        query.lastLoginAt = {};
         if (filters.lastLoginFrom) {
-          where.lastLoginAt.gte = filters.lastLoginFrom;
+          query.lastLoginAt.$gte = filters.lastLoginFrom;
         }
         if (filters.lastLoginTo) {
-          where.lastLoginAt.lte = filters.lastLoginTo;
+          query.lastLoginAt.$lte = filters.lastLoginTo;
         }
       }
 
+      const sortOptions: any = {};
+      sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
       const [customers, total] = await Promise.all([
-        this.prisma.customer.findMany({
-          where,
-          include: {
-            profile: true,
-            preferences: true,
-            addresses: true,
-          },
-          orderBy: { [sortBy]: sortOrder },
-          skip: (page - 1) * limit,
-          take: limit,
-        }),
-        this.prisma.customer.count({ where }),
+        Customer.find(query)
+          .sort(sortOptions)
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .lean()
+          .then(async (results) => {
+            // Populate related data for each customer
+            return Promise.all(
+              results.map(async (customer) => {
+                const [profile, preferences, addresses] = await Promise.all([
+                  CustomerProfile.findOne({ customerId: customer._id }).lean(),
+                  CustomerPreferences.findOne({ customerId: customer._id }).lean(),
+                  CustomerAddress.find({ customerId: customer._id, isActive: true }).lean(),
+                ]);
+
+                return {
+                  id: customer._id,
+                  ...customer,
+                  profile: profile ? { id: profile._id, ...profile } : null,
+                  preferences: preferences ? { id: preferences._id, ...preferences } : null,
+                  addresses: addresses.map(addr => ({ id: addr._id, ...addr })),
+                };
+              })
+            );
+          }),
+        Customer.countDocuments(query),
       ]);
 
       return {
@@ -298,20 +359,18 @@ export class CustomerModel {
   // Update customer profile
   async updateCustomerProfile(customerId: string, data: CustomerProfileData) {
     try {
-      const profile = await this.prisma.customerProfile.upsert({
-        where: { customerId },
-        update: {
-          ...data,
-          updatedAt: new Date(),
-        },
-        create: {
-          customerId,
-          ...data,
-        },
-      });
+      const profile = await CustomerProfile.findOneAndUpdate(
+        { customerId },
+        { ...data, updatedAt: new Date() },
+        { upsert: true, new: true, runValidators: true }
+      ).lean();
+
+      if (!profile) {
+        throw new Error('Failed to update customer profile');
+      }
 
       this.logger.info('Customer profile updated successfully', { customerId });
-      return profile;
+      return { id: profile._id, ...profile };
     } catch (error) {
       this.logger.error('Failed to update customer profile:', error as Error);
       throw error;
@@ -321,20 +380,18 @@ export class CustomerModel {
   // Update customer preferences
   async updateCustomerPreferences(customerId: string, data: CustomerPreferencesData) {
     try {
-      const preferences = await this.prisma.customerPreferences.upsert({
-        where: { customerId },
-        update: {
-          ...data,
-          updatedAt: new Date(),
-        },
-        create: {
-          customerId,
-          ...data,
-        },
-      });
+      const preferences = await CustomerPreferences.findOneAndUpdate(
+        { customerId },
+        { ...data, updatedAt: new Date() },
+        { upsert: true, new: true, runValidators: true }
+      ).lean();
+
+      if (!preferences) {
+        throw new Error('Failed to update customer preferences');
+      }
 
       this.logger.info('Customer preferences updated successfully', { customerId });
-      return preferences;
+      return { id: preferences._id, ...preferences };
     } catch (error) {
       this.logger.error('Failed to update customer preferences:', error as Error);
       throw error;
@@ -346,21 +403,22 @@ export class CustomerModel {
     try {
       // If this is set as default, unset other default addresses
       if (data.isDefault) {
-        await this.prisma.customerAddress.updateMany({
-          where: { customerId, isDefault: true },
-          data: { isDefault: false },
-        });
+        await CustomerAddress.updateMany(
+          { customerId, isDefault: true },
+          { isDefault: false }
+        );
       }
 
-      const address = await this.prisma.customerAddress.create({
-        data: {
-          customerId,
-          ...data,
-        },
-      });
+      const addressData: any = {
+        customerId,
+        ...data,
+        isDefault: data.isDefault || false,
+      };
 
-      this.logger.info('Customer address added successfully', { customerId, addressId: address.id });
-      return address;
+      const address = await CustomerAddress.create(addressData);
+
+      this.logger.info('Customer address added successfully', { customerId, addressId: address._id });
+      return { id: address._id, ...address.toObject() };
     } catch (error) {
       this.logger.error('Failed to add customer address:', error as Error);
       throw error;
@@ -372,29 +430,27 @@ export class CustomerModel {
     try {
       // If this is set as default, unset other default addresses
       if (data.isDefault) {
-        const address = await this.prisma.customerAddress.findUnique({
-          where: { id: addressId },
-          select: { customerId: true },
-        });
-
+        const address = await CustomerAddress.findById(addressId).lean();
         if (address) {
-          await this.prisma.customerAddress.updateMany({
-            where: { customerId: address.customerId, isDefault: true },
-            data: { isDefault: false },
-          });
+          await CustomerAddress.updateMany(
+            { customerId: address.customerId, isDefault: true, _id: { $ne: addressId } },
+            { isDefault: false }
+          );
         }
       }
 
-      const updatedAddress = await this.prisma.customerAddress.update({
-        where: { id: addressId },
-        data: {
-          ...data,
-          updatedAt: new Date(),
-        },
-      });
+      const updatedAddress = await CustomerAddress.findByIdAndUpdate(
+        addressId,
+        { ...data, updatedAt: new Date() },
+        { new: true, runValidators: true }
+      ).lean();
+
+      if (!updatedAddress) {
+        throw new Error('Address not found');
+      }
 
       this.logger.info('Customer address updated successfully', { addressId });
-      return updatedAddress;
+      return { id: updatedAddress._id, ...updatedAddress };
     } catch (error) {
       this.logger.error('Failed to update customer address:', error as Error);
       throw error;
@@ -404,11 +460,16 @@ export class CustomerModel {
   // Delete customer address
   async deleteCustomerAddress(addressId: string) {
     try {
-      await this.prisma.customerAddress.delete({
-        where: { id: addressId },
-      });
+      const address = await CustomerAddress.findById(addressId).lean();
 
-      this.logger.info('Customer address deleted successfully', { addressId });
+      if (!address) {
+        throw new Error('Address not found');
+      }
+
+      await CustomerAddress.findByIdAndDelete(addressId);
+
+      this.logger.info('Customer address deleted successfully', { addressId, customerId: address.customerId });
+      return address.customerId;
     } catch (error) {
       this.logger.error('Failed to delete customer address:', error as Error);
       throw error;
@@ -418,15 +479,11 @@ export class CustomerModel {
   // Get customer addresses
   async getCustomerAddresses(customerId: string) {
     try {
-      const addresses = await this.prisma.customerAddress.findMany({
-        where: { customerId, isActive: true },
-        orderBy: [
-          { isDefault: 'desc' },
-          { createdAt: 'desc' },
-        ],
-      });
+      const addresses = await CustomerAddress.find({ customerId, isActive: true })
+        .sort({ isDefault: -1, createdAt: -1 })
+        .lean();
 
-      return addresses;
+      return addresses.map(addr => ({ id: addr._id, ...addr }));
     } catch (error) {
       this.logger.error('Failed to get customer addresses:', error as Error);
       throw error;
@@ -436,17 +493,14 @@ export class CustomerModel {
   // Update last login
   async updateLastLogin(id: string, ipAddress?: string, userAgent?: string) {
     try {
-      await this.prisma.customer.update({
-        where: { id },
-        data: { lastLoginAt: new Date() },
-      });
-      
+      await Customer.findByIdAndUpdate(id, { lastLoginAt: new Date() });
+
       // Log the activity if ipAddress and userAgent are provided
       if (ipAddress || userAgent) {
         await this.logCustomerActivity(id, 'LOGIN', 'Customer logged in', {
           ipAddress,
           userAgent,
-        });
+        }, ipAddress, userAgent);
       }
     } catch (error) {
       this.logger.error('Failed to update last login:', error as Error);
@@ -457,13 +511,15 @@ export class CustomerModel {
   // Verify customer
   async verifyCustomer(id: string) {
     try {
-      const customer = await this.prisma.customer.update({
-        where: { id },
-        data: {
-          isVerified: true,
-          updatedAt: new Date(),
-        },
-      });
+      const customer = await Customer.findByIdAndUpdate(
+        id,
+        { isVerified: true, updatedAt: new Date() },
+        { new: true }
+      ).lean();
+
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
 
       this.logger.info('Customer verified successfully', { customerId: id });
       return customer;
@@ -476,6 +532,11 @@ export class CustomerModel {
   // Get customer statistics
   async getCustomerStats() {
     try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startOfWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const startOfToday = new Date(now.setHours(0, 0, 0, 0));
+
       const [
         totalCustomers,
         verifiedCustomers,
@@ -484,30 +545,12 @@ export class CustomerModel {
         newCustomersThisWeek,
         newCustomersToday,
       ] = await Promise.all([
-        this.prisma.customer.count(),
-        this.prisma.customer.count({ where: { isVerified: true } }),
-        this.prisma.customer.count({ where: { isActive: true } }),
-        this.prisma.customer.count({
-          where: {
-            createdAt: {
-              gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-            },
-          },
-        }),
-        this.prisma.customer.count({
-          where: {
-            createdAt: {
-              gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-            },
-          },
-        }),
-        this.prisma.customer.count({
-          where: {
-            createdAt: {
-              gte: new Date(new Date().setHours(0, 0, 0, 0)),
-            },
-          },
-        }),
+        Customer.countDocuments(),
+        Customer.countDocuments({ isVerified: true }),
+        Customer.countDocuments({ isActive: true }),
+        Customer.countDocuments({ createdAt: { $gte: startOfMonth } }),
+        Customer.countDocuments({ createdAt: { $gte: startOfWeek } }),
+        Customer.countDocuments({ createdAt: { $gte: startOfToday } }),
       ]);
 
       return {
@@ -528,18 +571,16 @@ export class CustomerModel {
   // Add loyalty points
   async addLoyaltyPoints(customerId: string, points: number, type: string, description: string, referenceId?: string) {
     try {
-      const loyaltyPoint = await this.prisma.customerLoyaltyPoint.create({
-        data: {
-          customerId,
-          points,
-          type: type as any,
-          description,
-          referenceId: referenceId || null,
-        },
+      const loyaltyPoint = await CustomerLoyaltyPoint.create({
+        customerId,
+        points,
+        type: type as any,
+        description,
+        referenceId: referenceId || undefined,
       });
 
       this.logger.info('Loyalty points added successfully', { customerId, points, type });
-      return loyaltyPoint;
+      return { id: loyaltyPoint._id, ...loyaltyPoint.toObject() };
     } catch (error) {
       this.logger.error('Failed to add loyalty points:', error as Error);
       throw error;
@@ -549,18 +590,18 @@ export class CustomerModel {
   // Redeem loyalty points
   async redeemLoyaltyPoints(customerId: string, points: number, description: string, referenceId?: string) {
     try {
-      const loyaltyPoint = await this.prisma.customerLoyaltyPoint.create({
-        data: {
-          customerId,
-          points: -points, // Negative points for redemption
-          type: 'REDEEMED',
-          description,
-          referenceId: referenceId || null,
-        },
+      const loyaltyPoint = await CustomerLoyaltyPoint.create({
+        customerId,
+        points: -points, // Negative points for redemption
+        type: 'REDEEMED',
+        description,
+        referenceId: referenceId || undefined,
+        isRedeemed: true,
+        redeemedAt: new Date(),
       });
 
       this.logger.info('Loyalty points redeemed successfully', { customerId, points });
-      return loyaltyPoint;
+      return { id: loyaltyPoint._id, ...loyaltyPoint.toObject() };
     } catch (error) {
       this.logger.error('Failed to redeem loyalty points:', error as Error);
       throw error;
@@ -568,21 +609,26 @@ export class CustomerModel {
   }
 
   // Log customer activity
-  async logCustomerActivity(customerId: string, activityType: string, description: string, metadata?: any, ipAddress?: string, userAgent?: string) {
+  async logCustomerActivity(
+    customerId: string,
+    activityType: string,
+    description: string,
+    metadata?: any,
+    ipAddress?: string,
+    userAgent?: string
+  ) {
     try {
-      const activity = await this.prisma.customerActivity.create({
-        data: {
-          customerId,
-          activityType: activityType as any,
-          description,
-          metadata: metadata ? JSON.stringify(metadata) : null,
-          ipAddress: ipAddress || null,
-          userAgent: userAgent || null,
-        },
+      const activity = await CustomerActivity.create({
+        customerId,
+        activityType: activityType as any,
+        description,
+        metadata: metadata || undefined,
+        ipAddress: ipAddress || undefined,
+        userAgent: userAgent || undefined,
       });
 
       this.logger.info('Customer activity logged successfully', { customerId, activityType });
-      return activity;
+      return { id: activity._id, ...activity.toObject() };
     } catch (error) {
       this.logger.error('Failed to log customer activity:', error as Error);
       throw error;
@@ -592,18 +638,16 @@ export class CustomerModel {
   // Send customer notification
   async sendCustomerNotification(customerId: string, type: string, title: string, message: string, metadata?: any) {
     try {
-      const notification = await this.prisma.customerNotification.create({
-        data: {
-          customerId,
-          type: type as any,
-          title,
-          message,
-          metadata: metadata ? JSON.stringify(metadata) : null,
-        },
+      const notification = await CustomerNotification.create({
+        customerId,
+        type: type as any,
+        title,
+        message,
+        metadata: metadata || undefined,
       });
 
       this.logger.info('Customer notification sent successfully', { customerId, type });
-      return notification;
+      return { id: notification._id, ...notification.toObject() };
     } catch (error) {
       this.logger.error('Failed to send customer notification:', error as Error);
       throw error;

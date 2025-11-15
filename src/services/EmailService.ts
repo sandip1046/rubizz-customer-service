@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import axios, { AxiosInstance } from 'axios';
 import { config } from '../config/config';
 import { Logger } from '@sandip1046/rubizz-shared-libs';
 
@@ -17,220 +17,174 @@ export interface EmailOptions {
 }
 
 export class EmailService {
-  private transporter: nodemailer.Transporter;
+  private mailServiceClient: AxiosInstance;
   private logger: Logger;
 
   constructor() {
     this.logger = Logger.getInstance('rubizz-customer-service', config.nodeEnv);
-    this.transporter = nodemailer.createTransport({
-      host: config.email.smtp.host,
-      port: config.email.smtp.port,
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: config.email.smtp.user,
-        pass: config.email.smtp.pass,
+    
+    // Initialize HTTP client for mail-service
+    this.mailServiceClient = axios.create({
+      baseURL: config.services.mailService,
+      timeout: 30000,
+      headers: {
+        'Content-Type': 'application/json',
       },
     });
-
-    // Verify connection configuration
-    this.verifyConnection();
   }
 
-  private async verifyConnection() {
-    try {
-      await this.transporter.verify();
-      this.logger.info('Email service connection verified');
-    } catch (error) {
-      this.logger.error('Email service connection failed:', error as Error);
-    }
-  }
-
-  // Send email
+  // Send email (generic method - can be used for custom emails)
   public async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
-      const mailOptions = {
-        from: {
-          name: config.email.from.name,
-          address: config.email.from.email,
-        },
-        to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
+      const response = await this.mailServiceClient.post('/api/v1/mail/send', {
+        to: options.to,
         subject: options.subject,
-        html: options.html,
-        text: options.text,
+        htmlContent: options.html,
+        textContent: options.text,
         attachments: options.attachments,
-      };
+      });
 
-      const result = await this.transporter.sendMail(mailOptions);
-      this.logger.info('Email sent successfully', { messageId: result.messageId, to: options.to });
-      return true;
-    } catch (error) {
-      this.logger.error('Failed to send email:', error as Error);
+      if (response.data.success) {
+        this.logger.info('Email sent successfully', {
+          to: options.to,
+          subject: options.subject,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send email', new Error(response.data.error?.message || 'Unknown error'), {
+          to: options.to,
+          subject: options.subject,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send email', error as Error, {
+        to: options.to,
+        subject: options.subject,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
       return false;
     }
   }
 
   // Send welcome email to new customer
   public async sendWelcomeEmail(customerEmail: string, customerName: string): Promise<boolean> {
-    const subject = 'Welcome to Rubizz Hotel Inn!';
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome to Rubizz Hotel Inn</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #cb9c03; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background-color: #f9f9f9; }
-          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
-          .button { display: inline-block; padding: 12px 24px; background-color: #cb9c03; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Welcome to Rubizz Hotel Inn!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${customerName}!</h2>
-            <p>Welcome to Rubizz Hotel Inn! We're thrilled to have you as part of our family.</p>
-            <p>Your account has been successfully created and you can now:</p>
-            <ul>
-              <li>Book hotel rooms with exclusive member rates</li>
-              <li>Reserve restaurant tables for dining</li>
-              <li>Order food for delivery or dine-in</li>
-              <li>Book event halls for special occasions</li>
-              <li>Earn loyalty points with every booking</li>
-            </ul>
-            <p>We look forward to providing you with exceptional service!</p>
-            <a href="#" class="button">Start Exploring</a>
-          </div>
-          <div class="footer">
-            <p>© 2024 Rubizz Hotel Inn. All rights reserved.</p>
-            <p>This email was sent to ${customerEmail}</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_welcome',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+        },
+      });
 
-    return await this.sendEmail({
-      to: customerEmail,
-      subject,
-      html,
-    });
+      if (response.data.success) {
+        this.logger.info('Welcome email sent successfully', {
+          customerEmail,
+          customerName,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send welcome email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send welcome email', error as Error, {
+        customerEmail,
+        customerName,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
   }
 
   // Send email verification
   public async sendVerificationEmail(customerEmail: string, customerName: string, verificationToken: string): Promise<boolean> {
-    const subject = 'Verify Your Email - Rubizz Hotel Inn';
-    const verificationUrl = `${config.services.apiGateway}/verify-email?token=${verificationToken}`;
-    
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Verify Your Email</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #cb9c03; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background-color: #f9f9f9; }
-          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
-          .button { display: inline-block; padding: 12px 24px; background-color: #cb9c03; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
-          .code { background-color: #f0f0f0; padding: 10px; font-family: monospace; font-size: 18px; text-align: center; margin: 20px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Verify Your Email</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${customerName}!</h2>
-            <p>Thank you for registering with Rubizz Hotel Inn. To complete your registration, please verify your email address.</p>
-            <p>Click the button below to verify your email:</p>
-            <a href="${verificationUrl}" class="button">Verify Email Address</a>
-            <p>Or copy and paste this link into your browser:</p>
-            <p style="word-break: break-all; color: #666;">${verificationUrl}</p>
-            <p>This link will expire in 24 hours for security reasons.</p>
-            <p>If you didn't create an account with us, please ignore this email.</p>
-          </div>
-          <div class="footer">
-            <p>© 2024 Rubizz Hotel Inn. All rights reserved.</p>
-            <p>This email was sent to ${customerEmail}</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    try {
+      const verificationUrl = `${config.services.apiGateway}/verify-email?token=${verificationToken}`;
+      
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_email_verification',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          verificationUrl,
+          verificationToken,
+        },
+      });
 
-    return await this.sendEmail({
-      to: customerEmail,
-      subject,
-      html,
-    });
+      if (response.data.success) {
+        this.logger.info('Verification email sent successfully', {
+          customerEmail,
+          customerName,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send verification email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send verification email', error as Error, {
+        customerEmail,
+        customerName,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
   }
 
   // Send password reset email
   public async sendPasswordResetEmail(customerEmail: string, customerName: string, resetToken: string): Promise<boolean> {
-    const subject = 'Reset Your Password - Rubizz Hotel Inn';
-    const resetUrl = `${config.services.apiGateway}/reset-password?token=${resetToken}`;
-    
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Reset Your Password</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #cb9c03; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background-color: #f9f9f9; }
-          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
-          .button { display: inline-block; padding: 12px 24px; background-color: #cb9c03; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
-          .warning { background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 4px; margin: 20px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Reset Your Password</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${customerName}!</h2>
-            <p>We received a request to reset your password for your Rubizz Hotel Inn account.</p>
-            <p>Click the button below to reset your password:</p>
-            <a href="${resetUrl}" class="button">Reset Password</a>
-            <p>Or copy and paste this link into your browser:</p>
-            <p style="word-break: break-all; color: #666;">${resetUrl}</p>
-            <div class="warning">
-              <strong>Security Notice:</strong> This link will expire in 1 hour for security reasons. If you didn't request this password reset, please ignore this email and your password will remain unchanged.
-            </div>
-          </div>
-          <div class="footer">
-            <p>© 2024 Rubizz Hotel Inn. All rights reserved.</p>
-            <p>This email was sent to ${customerEmail}</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    try {
+      const resetUrl = `${config.services.apiGateway}/reset-password?token=${resetToken}`;
+      
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_password_reset',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          resetUrl,
+          resetToken,
+        },
+      });
 
-    return await this.sendEmail({
-      to: customerEmail,
-      subject,
-      html,
-    });
+      if (response.data.success) {
+        this.logger.info('Password reset email sent successfully', {
+          customerEmail,
+          customerName,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send password reset email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send password reset email', error as Error, {
+        customerEmail,
+        customerName,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
   }
 
-  // Send booking confirmation email
+  // Send booking confirmation email (generic - for backward compatibility)
   public async sendBookingConfirmationEmail(
     customerEmail: string,
     customerName: string,
@@ -241,69 +195,906 @@ export class EmailService {
       amount: number;
     }
   ): Promise<boolean> {
-    const subject = 'Booking Confirmation - Rubizz Hotel Inn';
-    
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Booking Confirmation</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #cb9c03; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background-color: #f9f9f9; }
-          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
-          .booking-details { background-color: white; padding: 20px; border-radius: 4px; margin: 20px 0; }
-          .detail-row { display: flex; justify-content: space-between; margin: 10px 0; padding: 10px 0; border-bottom: 1px solid #eee; }
-          .detail-label { font-weight: bold; }
-          .detail-value { color: #666; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Booking Confirmed!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${customerName}!</h2>
-            <p>Your booking has been successfully confirmed. Here are the details:</p>
-            <div class="booking-details">
-              <div class="detail-row">
-                <span class="detail-label">Booking Type:</span>
-                <span class="detail-value">${bookingDetails.type}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Reference Number:</span>
-                <span class="detail-value">${bookingDetails.reference}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Date:</span>
-                <span class="detail-value">${bookingDetails.date}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Amount:</span>
-                <span class="detail-value">$${bookingDetails.amount}</span>
-              </div>
-            </div>
-            <p>Thank you for choosing Rubizz Hotel Inn. We look forward to serving you!</p>
-          </div>
-          <div class="footer">
-            <p>© 2024 Rubizz Hotel Inn. All rights reserved.</p>
-            <p>This email was sent to ${customerEmail}</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_booking_confirmation',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          bookingType: bookingDetails.type,
+          bookingReference: bookingDetails.reference,
+          bookingDate: bookingDetails.date,
+          bookingAmount: bookingDetails.amount,
+        },
+      });
 
-    return await this.sendEmail({
-      to: customerEmail,
-      subject,
-      html,
-    });
+      if (response.data.success) {
+        this.logger.info('Booking confirmation email sent successfully', {
+          customerEmail,
+          customerName,
+          bookingReference: bookingDetails.reference,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send booking confirmation email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          bookingReference: bookingDetails.reference,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send booking confirmation email', error as Error, {
+        customerEmail,
+        customerName,
+        bookingReference: bookingDetails.reference,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send room booking confirmation email
+  public async sendRoomBookingConfirmation(
+    customerEmail: string,
+    customerName: string,
+    bookingDetails: {
+      bookingNumber: string;
+      roomNumber: string;
+      roomType: string;
+      checkInDate: string;
+      checkOutDate: string;
+      totalAmount: number;
+      guestCount?: number;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_room_booking_confirmation',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          bookingNumber: bookingDetails.bookingNumber,
+          roomNumber: bookingDetails.roomNumber,
+          roomType: bookingDetails.roomType,
+          checkInDate: bookingDetails.checkInDate,
+          checkOutDate: bookingDetails.checkOutDate,
+          totalAmount: bookingDetails.totalAmount,
+          guestCount: bookingDetails.guestCount || 1,
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Room booking confirmation email sent successfully', {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send room booking confirmation email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send room booking confirmation email', error as Error, {
+        customerEmail,
+        customerName,
+        bookingNumber: bookingDetails.bookingNumber,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send room booking cancellation email
+  public async sendRoomBookingCancellation(
+    customerEmail: string,
+    customerName: string,
+    bookingDetails: {
+      bookingNumber: string;
+      roomNumber: string;
+      cancellationReason?: string;
+      refundAmount?: number;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_room_booking_cancellation',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          bookingNumber: bookingDetails.bookingNumber,
+          roomNumber: bookingDetails.roomNumber,
+          cancellationReason: bookingDetails.cancellationReason || 'Customer request',
+          refundAmount: bookingDetails.refundAmount || 0,
+          hasRefund: bookingDetails.refundAmount ? 'true' : 'false',
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Room booking cancellation email sent successfully', {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send room booking cancellation email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send room booking cancellation email', error as Error, {
+        customerEmail,
+        customerName,
+        bookingNumber: bookingDetails.bookingNumber,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send table booking confirmation email
+  public async sendTableBookingConfirmation(
+    customerEmail: string,
+    customerName: string,
+    bookingDetails: {
+      bookingNumber: string;
+      tableNumber: string;
+      bookingDate: string;
+      bookingTime: string;
+      partySize: number;
+      totalAmount: number;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_table_booking_confirmation',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          bookingNumber: bookingDetails.bookingNumber,
+          tableNumber: bookingDetails.tableNumber,
+          bookingDate: bookingDetails.bookingDate,
+          bookingTime: bookingDetails.bookingTime,
+          partySize: bookingDetails.partySize,
+          totalAmount: bookingDetails.totalAmount,
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Table booking confirmation email sent successfully', {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send table booking confirmation email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send table booking confirmation email', error as Error, {
+        customerEmail,
+        customerName,
+        bookingNumber: bookingDetails.bookingNumber,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send table booking cancellation email
+  public async sendTableBookingCancellation(
+    customerEmail: string,
+    customerName: string,
+    bookingDetails: {
+      bookingNumber: string;
+      tableNumber: string;
+      cancellationReason?: string;
+      refundAmount?: number;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_table_booking_cancellation',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          bookingNumber: bookingDetails.bookingNumber,
+          tableNumber: bookingDetails.tableNumber,
+          cancellationReason: bookingDetails.cancellationReason || 'Customer request',
+          refundAmount: bookingDetails.refundAmount || 0,
+          hasRefund: bookingDetails.refundAmount ? 'true' : 'false',
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Table booking cancellation email sent successfully', {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send table booking cancellation email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send table booking cancellation email', error as Error, {
+        customerEmail,
+        customerName,
+        bookingNumber: bookingDetails.bookingNumber,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send hall booking confirmation email
+  public async sendHallBookingConfirmation(
+    customerEmail: string,
+    customerName: string,
+    bookingDetails: {
+      bookingNumber: string;
+      hallName: string;
+      eventDate: string;
+      eventTime: string;
+      eventType: string;
+      totalAmount: number;
+      guestCount?: number;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_hall_booking_confirmation',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          bookingNumber: bookingDetails.bookingNumber,
+          hallName: bookingDetails.hallName,
+          eventDate: bookingDetails.eventDate,
+          eventTime: bookingDetails.eventTime,
+          eventType: bookingDetails.eventType,
+          totalAmount: bookingDetails.totalAmount,
+          guestCount: bookingDetails.guestCount || 0,
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Hall booking confirmation email sent successfully', {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send hall booking confirmation email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send hall booking confirmation email', error as Error, {
+        customerEmail,
+        customerName,
+        bookingNumber: bookingDetails.bookingNumber,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send hall booking cancellation email
+  public async sendHallBookingCancellation(
+    customerEmail: string,
+    customerName: string,
+    bookingDetails: {
+      bookingNumber: string;
+      hallName: string;
+      cancellationReason?: string;
+      refundAmount?: number;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_hall_booking_cancellation',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          bookingNumber: bookingDetails.bookingNumber,
+          hallName: bookingDetails.hallName,
+          cancellationReason: bookingDetails.cancellationReason || 'Customer request',
+          refundAmount: bookingDetails.refundAmount || 0,
+          hasRefund: bookingDetails.refundAmount ? 'true' : 'false',
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Hall booking cancellation email sent successfully', {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send hall booking cancellation email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send hall booking cancellation email', error as Error, {
+        customerEmail,
+        customerName,
+        bookingNumber: bookingDetails.bookingNumber,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send booking reschedule email
+  public async sendBookingReschedule(
+    customerEmail: string,
+    customerName: string,
+    bookingDetails: {
+      bookingNumber: string;
+      bookingType: string;
+      oldDate: string;
+      newDate: string;
+      oldTime?: string;
+      newTime?: string;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_booking_reschedule',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          bookingNumber: bookingDetails.bookingNumber,
+          bookingType: bookingDetails.bookingType,
+          oldDate: bookingDetails.oldDate,
+          newDate: bookingDetails.newDate,
+          oldTime: bookingDetails.oldTime || '',
+          newTime: bookingDetails.newTime || '',
+          hasTime: bookingDetails.oldTime && bookingDetails.newTime ? 'true' : 'false',
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Booking reschedule email sent successfully', {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send booking reschedule email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send booking reschedule email', error as Error, {
+        customerEmail,
+        customerName,
+        bookingNumber: bookingDetails.bookingNumber,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send check-in reminder email
+  public async sendCheckInReminder(
+    customerEmail: string,
+    customerName: string,
+    bookingDetails: {
+      bookingNumber: string;
+      checkInDate: string;
+      checkInTime?: string;
+      location?: string;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_checkin_reminder',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          bookingNumber: bookingDetails.bookingNumber,
+          checkInDate: bookingDetails.checkInDate,
+          checkInTime: bookingDetails.checkInTime || '',
+          location: bookingDetails.location || 'Rubizz Hotel Inn',
+          hasTime: bookingDetails.checkInTime ? 'true' : 'false',
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Check-in reminder email sent successfully', {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send check-in reminder email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send check-in reminder email', error as Error, {
+        customerEmail,
+        customerName,
+        bookingNumber: bookingDetails.bookingNumber,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send check-out reminder email
+  public async sendCheckOutReminder(
+    customerEmail: string,
+    customerName: string,
+    bookingDetails: {
+      bookingNumber: string;
+      checkOutDate: string;
+      checkOutTime?: string;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_checkout_reminder',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          bookingNumber: bookingDetails.bookingNumber,
+          checkOutDate: bookingDetails.checkOutDate,
+          checkOutTime: bookingDetails.checkOutTime || '',
+          hasTime: bookingDetails.checkOutTime ? 'true' : 'false',
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Check-out reminder email sent successfully', {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send check-out reminder email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          bookingNumber: bookingDetails.bookingNumber,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send check-out reminder email', error as Error, {
+        customerEmail,
+        customerName,
+        bookingNumber: bookingDetails.bookingNumber,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send order status update email
+  public async sendOrderStatusUpdate(
+    customerEmail: string,
+    customerName: string,
+    orderDetails: {
+      orderNumber: string;
+      status: string;
+      statusMessage?: string;
+      estimatedTime?: string;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_order_status_update',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          orderNumber: orderDetails.orderNumber,
+          status: orderDetails.status,
+          statusMessage: orderDetails.statusMessage || `Your order is now ${orderDetails.status}`,
+          estimatedTime: orderDetails.estimatedTime || '',
+          hasEstimatedTime: orderDetails.estimatedTime ? 'true' : 'false',
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Order status update email sent successfully', {
+          customerEmail,
+          customerName,
+          orderNumber: orderDetails.orderNumber,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send order status update email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          orderNumber: orderDetails.orderNumber,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send order status update email', error as Error, {
+        customerEmail,
+        customerName,
+        orderNumber: orderDetails.orderNumber,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send order delivered email
+  public async sendOrderDelivered(
+    customerEmail: string,
+    customerName: string,
+    orderDetails: {
+      orderNumber: string;
+      deliveryTime: string;
+      deliveryAddress?: string;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_order_delivered',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          orderNumber: orderDetails.orderNumber,
+          deliveryTime: orderDetails.deliveryTime,
+          deliveryAddress: orderDetails.deliveryAddress || '',
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Order delivered email sent successfully', {
+          customerEmail,
+          customerName,
+          orderNumber: orderDetails.orderNumber,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send order delivered email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          orderNumber: orderDetails.orderNumber,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send order delivered email', error as Error, {
+        customerEmail,
+        customerName,
+        orderNumber: orderDetails.orderNumber,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send order cancellation email
+  public async sendOrderCancellation(
+    customerEmail: string,
+    customerName: string,
+    orderDetails: {
+      orderNumber: string;
+      cancellationReason?: string;
+      refundAmount?: number;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_order_cancellation',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          orderNumber: orderDetails.orderNumber,
+          cancellationReason: orderDetails.cancellationReason || 'Customer request',
+          refundAmount: orderDetails.refundAmount || 0,
+          hasRefund: orderDetails.refundAmount ? 'true' : 'false',
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Order cancellation email sent successfully', {
+          customerEmail,
+          customerName,
+          orderNumber: orderDetails.orderNumber,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send order cancellation email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          orderNumber: orderDetails.orderNumber,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send order cancellation email', error as Error, {
+        customerEmail,
+        customerName,
+        orderNumber: orderDetails.orderNumber,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send account update email
+  public async sendAccountUpdate(
+    customerEmail: string,
+    customerName: string,
+    updateDetails: {
+      updateType: string;
+      updateMessage: string;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_account_update',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          updateType: updateDetails.updateType,
+          updateMessage: updateDetails.updateMessage,
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Account update email sent successfully', {
+          customerEmail,
+          customerName,
+          updateType: updateDetails.updateType,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send account update email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          updateType: updateDetails.updateType,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send account update email', error as Error, {
+        customerEmail,
+        customerName,
+        updateType: updateDetails.updateType,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send offer/promotion email
+  public async sendOfferPromotion(
+    customerEmail: string,
+    customerName: string,
+    offerDetails: {
+      offerTitle: string;
+      offerDescription: string;
+      discountCode?: string;
+      validUntil?: string;
+      offerLink?: string;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_offer_promotion',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          offerTitle: offerDetails.offerTitle,
+          offerDescription: offerDetails.offerDescription,
+          discountCode: offerDetails.discountCode || '',
+          validUntil: offerDetails.validUntil || '',
+          offerLink: offerDetails.offerLink || '',
+          hasDiscountCode: offerDetails.discountCode ? 'true' : 'false',
+          hasValidUntil: offerDetails.validUntil ? 'true' : 'false',
+          hasOfferLink: offerDetails.offerLink ? 'true' : 'false',
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Offer/promotion email sent successfully', {
+          customerEmail,
+          customerName,
+          offerTitle: offerDetails.offerTitle,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send offer/promotion email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          offerTitle: offerDetails.offerTitle,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send offer/promotion email', error as Error, {
+        customerEmail,
+        customerName,
+        offerTitle: offerDetails.offerTitle,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send loyalty points update email
+  public async sendLoyaltyPointsUpdate(
+    customerEmail: string,
+    customerName: string,
+    loyaltyDetails: {
+      pointsEarned?: number;
+      pointsRedeemed?: number;
+      currentBalance: number;
+      transactionType: string;
+      transactionDescription?: string;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_loyalty_points_update',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          pointsEarned: loyaltyDetails.pointsEarned || 0,
+          pointsRedeemed: loyaltyDetails.pointsRedeemed || 0,
+          currentBalance: loyaltyDetails.currentBalance,
+          transactionType: loyaltyDetails.transactionType,
+          transactionDescription: loyaltyDetails.transactionDescription || '',
+          hasPointsEarned: loyaltyDetails.pointsEarned ? 'true' : 'false',
+          hasPointsRedeemed: loyaltyDetails.pointsRedeemed ? 'true' : 'false',
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Loyalty points update email sent successfully', {
+          customerEmail,
+          customerName,
+          currentBalance: loyaltyDetails.currentBalance,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send loyalty points update email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          currentBalance: loyaltyDetails.currentBalance,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send loyalty points update email', error as Error, {
+        customerEmail,
+        customerName,
+        currentBalance: loyaltyDetails.currentBalance,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
+  }
+
+  // Send review request email
+  public async sendReviewRequest(
+    customerEmail: string,
+    customerName: string,
+    reviewDetails: {
+      bookingNumber?: string;
+      orderNumber?: string;
+      reviewLink: string;
+      serviceType: string;
+    }
+  ): Promise<boolean> {
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_review_request',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          bookingNumber: reviewDetails.bookingNumber || '',
+          orderNumber: reviewDetails.orderNumber || '',
+          reviewLink: reviewDetails.reviewLink,
+          serviceType: reviewDetails.serviceType,
+          hasBookingNumber: reviewDetails.bookingNumber ? 'true' : 'false',
+          hasOrderNumber: reviewDetails.orderNumber ? 'true' : 'false',
+        },
+      });
+
+      if (response.data.success) {
+        this.logger.info('Review request email sent successfully', {
+          customerEmail,
+          customerName,
+          serviceType: reviewDetails.serviceType,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send review request email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          serviceType: reviewDetails.serviceType,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send review request email', error as Error, {
+        customerEmail,
+        customerName,
+        serviceType: reviewDetails.serviceType,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
   }
 
   // Send order confirmation email
@@ -317,77 +1108,54 @@ export class EmailService {
       deliveryAddress?: string;
     }
   ): Promise<boolean> {
-    const subject = 'Order Confirmation - Rubizz Hotel Inn';
-    
-    const itemsHtml = orderDetails.items.map(item => `
-      <div class="detail-row">
-        <span class="detail-label">${item.name} x${item.quantity}</span>
-        <span class="detail-value">$${item.price * item.quantity}</span>
-      </div>
-    `).join('');
+    try {
+      // Format items for template
+      const itemsList = orderDetails.items.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        total: item.price * item.quantity,
+      }));
 
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Order Confirmation</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #cb9c03; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background-color: #f9f9f9; }
-          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
-          .order-details { background-color: white; padding: 20px; border-radius: 4px; margin: 20px 0; }
-          .detail-row { display: flex; justify-content: space-between; margin: 10px 0; padding: 10px 0; border-bottom: 1px solid #eee; }
-          .detail-label { font-weight: bold; }
-          .detail-value { color: #666; }
-          .total-row { font-weight: bold; font-size: 18px; border-top: 2px solid #cb9c03; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Order Confirmed!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${customerName}!</h2>
-            <p>Your order has been successfully placed. Here are the details:</p>
-            <div class="order-details">
-              <div class="detail-row">
-                <span class="detail-label">Order Number:</span>
-                <span class="detail-value">${orderDetails.orderNumber}</span>
-              </div>
-              ${orderDetails.deliveryAddress ? `
-                <div class="detail-row">
-                  <span class="detail-label">Delivery Address:</span>
-                  <span class="detail-value">${orderDetails.deliveryAddress}</span>
-                </div>
-              ` : ''}
-              <h3>Order Items:</h3>
-              ${itemsHtml}
-              <div class="detail-row total-row">
-                <span class="detail-label">Total:</span>
-                <span class="detail-value">$${orderDetails.total}</span>
-              </div>
-            </div>
-            <p>Thank you for choosing Rubizz Hotel Inn. We'll prepare your order and notify you when it's ready!</p>
-          </div>
-          <div class="footer">
-            <p>© 2024 Rubizz Hotel Inn. All rights reserved.</p>
-            <p>This email was sent to ${customerEmail}</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_order_confirmation',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          orderNumber: orderDetails.orderNumber,
+          items: JSON.stringify(itemsList),
+          itemsCount: orderDetails.items.length,
+          orderTotal: orderDetails.total,
+          deliveryAddress: orderDetails.deliveryAddress || 'N/A',
+        },
+      });
 
-    return await this.sendEmail({
-      to: customerEmail,
-      subject,
-      html,
-    });
+      if (response.data.success) {
+        this.logger.info('Order confirmation email sent successfully', {
+          customerEmail,
+          customerName,
+          orderNumber: orderDetails.orderNumber,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send order confirmation email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          orderNumber: orderDetails.orderNumber,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send order confirmation email', error as Error, {
+        customerEmail,
+        customerName,
+        orderNumber: orderDetails.orderNumber,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
   }
 
   // Send notification email
@@ -400,50 +1168,44 @@ export class EmailService {
       type: string;
     }
   ): Promise<boolean> {
-    const subject = `${notification.title} - Rubizz Hotel Inn`;
-    
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${notification.title}</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #cb9c03; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background-color: #f9f9f9; }
-          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
-          .notification { background-color: white; padding: 20px; border-radius: 4px; margin: 20px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>${notification.title}</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${customerName}!</h2>
-            <div class="notification">
-              <p>${notification.message}</p>
-            </div>
-            <p>Thank you for being a valued customer of Rubizz Hotel Inn!</p>
-          </div>
-          <div class="footer">
-            <p>© 2024 Rubizz Hotel Inn. All rights reserved.</p>
-            <p>This email was sent to ${customerEmail}</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    try {
+      const response = await this.mailServiceClient.post('/api/v1/mail/send-template', {
+        templateName: 'customer_notification',
+        to: customerEmail,
+        variables: {
+          customerName,
+          customerEmail,
+          notificationTitle: notification.title,
+          notificationMessage: notification.message,
+          notificationType: notification.type,
+        },
+      });
 
-    return await this.sendEmail({
-      to: customerEmail,
-      subject,
-      html,
-    });
+      if (response.data.success) {
+        this.logger.info('Notification email sent successfully', {
+          customerEmail,
+          customerName,
+          notificationType: notification.type,
+          emailId: response.data.data?.emailId,
+        });
+        return true;
+      } else {
+        this.logger.error('Failed to send notification email', new Error(response.data.error?.message || 'Unknown error'), {
+          customerEmail,
+          customerName,
+          notificationType: notification.type,
+        });
+        return false;
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to send notification email', error as Error, {
+        customerEmail,
+        customerName,
+        notificationType: notification.type,
+        errorMessage: error.response?.data?.error?.message || error.message,
+      });
+      return false;
+    }
   }
 }
 

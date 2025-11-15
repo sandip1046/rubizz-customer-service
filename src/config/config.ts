@@ -29,25 +29,13 @@ export const config = {
     refreshExpiresIn: process.env['JWT_REFRESH_EXPIRES_IN'] || '7d',
   },
 
-  // Email Configuration
-  email: {
-    smtp: {
-      host: process.env['SMTP_HOST'] || 'smtp-relay.brevo.com',
-      port: parseInt(process.env['SMTP_PORT'] || '587', 10),
-      user: process.env['SMTP_USER'] || 'your-email@example.com',
-      pass: process.env['SMTP_PASS'] || 'your-smtp-password',
-    },
-    from: {
-      email: process.env['FROM_EMAIL'] || 'noreply@rubizzhotel.com',
-      name: process.env['FROM_NAME'] || 'Rubizz Hotel Inn',
-    },
-  },
 
   // API Gateway Configuration
   services: {
     apiGateway: process.env['API_GATEWAY_URL'] || 'http://localhost:3000',
     auth: process.env['AUTH_SERVICE_URL'] || 'http://localhost:3001',
     user: process.env['USER_SERVICE_URL'] || 'http://localhost:3002',
+    mailService: process.env['MAIL_SERVICE_URL'] || 'http://localhost:3010',
   },
 
   // Rate Limiting

@@ -1,11 +1,43 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CustomerService = void 0;
 const Customer_1 = require("../models/Customer");
-const DatabaseConnection_1 = __importDefault(require("../database/DatabaseConnection"));
 const RedisService_1 = __importDefault(require("./RedisService"));
 const EmailService_1 = __importDefault(require("./EmailService"));
 const config_1 = require("../config/config");
@@ -13,8 +45,7 @@ const rubizz_shared_libs_1 = require("@sandip1046/rubizz-shared-libs");
 const uuid_1 = require("uuid");
 class CustomerService {
     constructor() {
-        const prisma = DatabaseConnection_1.default.getInstance().getPrismaClient();
-        this.customerModel = new Customer_1.CustomerModel(prisma);
+        this.customerModel = new Customer_1.CustomerModel();
         this.emailService = new EmailService_1.default();
         this.redisService = new RedisService_1.default();
         this.logger = rubizz_shared_libs_1.Logger.getInstance('rubizz-customer-service', config_1.config.nodeEnv);
@@ -188,21 +219,18 @@ class CustomerService {
     }
     async getCustomerLoyaltyPoints(customerId) {
         try {
-            const prisma = DatabaseConnection_1.default.getInstance().getPrismaClient();
-            const [totalPoints, recentPoints] = await Promise.all([
-                prisma.customerLoyaltyPoint.aggregate({
-                    where: { customerId, isRedeemed: false },
-                    _sum: { points: true },
-                }),
-                prisma.customerLoyaltyPoint.findMany({
-                    where: { customerId },
-                    orderBy: { createdAt: 'desc' },
-                    take: 10,
-                }),
+            const { CustomerLoyaltyPoint } = await Promise.resolve().then(() => __importStar(require('../schemas/CustomerSchema')));
+            const [totalPointsResult, recentPoints] = await Promise.all([
+                CustomerLoyaltyPoint.aggregate([
+                    { $match: { customerId, isRedeemed: false } },
+                    { $group: { _id: null, total: { $sum: '$points' } } },
+                ]),
+                CustomerLoyaltyPoint.find({ customerId }).sort({ createdAt: -1 }).limit(10).lean(),
             ]);
+            const totalPoints = totalPointsResult.length > 0 ? totalPointsResult[0].total : 0;
             return {
-                total: totalPoints._sum.points || 0,
-                recent: recentPoints,
+                total: totalPoints || 0,
+                recent: recentPoints.map((lp) => ({ id: lp._id, ...lp })),
             };
         }
         catch (error) {
@@ -212,13 +240,12 @@ class CustomerService {
     }
     async getCustomerRecentActivities(customerId, limit = 10) {
         try {
-            const prisma = DatabaseConnection_1.default.getInstance().getPrismaClient();
-            const activities = await prisma.customerActivity.findMany({
-                where: { customerId },
-                orderBy: { createdAt: 'desc' },
-                take: limit,
-            });
-            return activities;
+            const { CustomerActivity } = await Promise.resolve().then(() => __importStar(require('../schemas/CustomerSchema')));
+            const activities = await CustomerActivity.find({ customerId })
+                .sort({ createdAt: -1 })
+                .limit(limit)
+                .lean();
+            return activities.map((act) => ({ id: act._id, ...act }));
         }
         catch (error) {
             this.logger.error('Failed to get customer recent activities:', error);
@@ -227,20 +254,18 @@ class CustomerService {
     }
     async addLoyaltyPoints(customerId, points, type, description, referenceId) {
         try {
-            const prisma = DatabaseConnection_1.default.getInstance().getPrismaClient();
-            const loyaltyPoint = await prisma.customerLoyaltyPoint.create({
-                data: {
-                    customerId,
-                    points,
-                    type: type,
-                    description,
-                    referenceId: referenceId || null,
-                    expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-                },
+            const { CustomerLoyaltyPoint } = await Promise.resolve().then(() => __importStar(require('../schemas/CustomerSchema')));
+            const loyaltyPoint = await CustomerLoyaltyPoint.create({
+                customerId,
+                points,
+                type: type,
+                description,
+                referenceId: referenceId || undefined,
+                expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
             });
             await this.logCustomerActivity(customerId, 'LOYALTY_POINTS_EARNED', `Earned ${points} loyalty points`);
             this.logger.info('Loyalty points added successfully', { customerId, points, type });
-            return loyaltyPoint;
+            return { id: loyaltyPoint._id, ...loyaltyPoint.toObject() };
         }
         catch (error) {
             this.logger.error('Failed to add loyalty points:', error);
@@ -253,21 +278,19 @@ class CustomerService {
             if (loyaltyPoints.total < points) {
                 throw new Error('Insufficient loyalty points');
             }
-            const prisma = DatabaseConnection_1.default.getInstance().getPrismaClient();
-            const loyaltyPoint = await prisma.customerLoyaltyPoint.create({
-                data: {
-                    customerId,
-                    points: -points,
-                    type: 'REDEEMED',
-                    description,
-                    referenceId: referenceId || null,
-                    isRedeemed: true,
-                    redeemedAt: new Date(),
-                },
+            const { CustomerLoyaltyPoint } = await Promise.resolve().then(() => __importStar(require('../schemas/CustomerSchema')));
+            const loyaltyPoint = await CustomerLoyaltyPoint.create({
+                customerId,
+                points: -points,
+                type: 'REDEEMED',
+                description,
+                referenceId: referenceId || undefined,
+                isRedeemed: true,
+                redeemedAt: new Date(),
             });
             await this.logCustomerActivity(customerId, 'LOYALTY_POINTS_REDEEMED', `Redeemed ${points} loyalty points`);
             this.logger.info('Loyalty points redeemed successfully', { customerId, points });
-            return loyaltyPoint;
+            return { id: loyaltyPoint._id, ...loyaltyPoint.toObject() };
         }
         catch (error) {
             this.logger.error('Failed to redeem loyalty points:', error);
@@ -276,14 +299,12 @@ class CustomerService {
     }
     async logCustomerActivity(customerId, activityType, description, metadata) {
         try {
-            const prisma = DatabaseConnection_1.default.getInstance().getPrismaClient();
-            await prisma.customerActivity.create({
-                data: {
-                    customerId,
-                    activityType: activityType,
-                    description,
-                    metadata: metadata ? JSON.stringify(metadata) : null,
-                },
+            const { CustomerActivity } = await Promise.resolve().then(() => __importStar(require('../schemas/CustomerSchema')));
+            await CustomerActivity.create({
+                customerId,
+                activityType: activityType,
+                description,
+                metadata: metadata || undefined,
             });
         }
         catch (error) {
@@ -292,15 +313,13 @@ class CustomerService {
     }
     async sendCustomerNotification(customerId, type, title, message, metadata) {
         try {
-            const prisma = DatabaseConnection_1.default.getInstance().getPrismaClient();
-            const notification = await prisma.customerNotification.create({
-                data: {
-                    customerId,
-                    type: type,
-                    title,
-                    message,
-                    metadata: metadata ? JSON.stringify(metadata) : null,
-                },
+            const { CustomerNotification } = await Promise.resolve().then(() => __importStar(require('../schemas/CustomerSchema')));
+            const notification = await CustomerNotification.create({
+                customerId,
+                type: type,
+                title,
+                message,
+                metadata: metadata || undefined,
             });
             const customer = await this.customerModel.getCustomerById(customerId);
             if (customer && config_1.config.notifications.email) {
@@ -312,7 +331,7 @@ class CustomerService {
                 }
             }
             this.logger.info('Customer notification sent successfully', { customerId, type });
-            return notification;
+            return { id: notification._id, ...notification.toObject() };
         }
         catch (error) {
             this.logger.error('Failed to send customer notification:', error);

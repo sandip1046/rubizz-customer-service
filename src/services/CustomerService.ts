@@ -1,5 +1,4 @@
 import { CustomerModel, CreateCustomerData, CustomerProfileData, CustomerPreferencesData, CustomerAddressData, CustomerSearchFilters, CustomerPaginationOptions } from '../models/Customer';
-import DatabaseConnection from '../database/DatabaseConnection';
 import RedisService from './RedisService';
 import EmailService from './EmailService';
 import { config } from '../config/config';
@@ -13,8 +12,7 @@ export class CustomerService {
   private logger: Logger;
 
   constructor() {
-    const prisma = DatabaseConnection.getInstance().getPrismaClient();
-    this.customerModel = new CustomerModel(prisma);
+    this.customerModel = new CustomerModel();
     this.emailService = new EmailService();
     this.redisService = new RedisService();
     this.logger = Logger.getInstance('rubizz-customer-service', config.nodeEnv);
@@ -39,6 +37,10 @@ export class CustomerService {
 
       // Create customer
       const customer = await this.customerModel.createCustomer(customerData);
+
+      if (!customer || !customer.id) {
+        throw new Error('Failed to create customer');
+      }
 
       // Generate verification token if verification is required
       let verificationToken = null;
@@ -257,23 +259,21 @@ export class CustomerService {
   // Get customer loyalty points
   async getCustomerLoyaltyPoints(customerId: string) {
     try {
-      const prisma = DatabaseConnection.getInstance().getPrismaClient();
+      const { CustomerLoyaltyPoint } = await import('../schemas/CustomerSchema');
       
-      const [totalPoints, recentPoints] = await Promise.all([
-        prisma.customerLoyaltyPoint.aggregate({
-          where: { customerId, isRedeemed: false },
-          _sum: { points: true },
-        }),
-        prisma.customerLoyaltyPoint.findMany({
-          where: { customerId },
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-        }),
+      const [totalPointsResult, recentPoints] = await Promise.all([
+        CustomerLoyaltyPoint.aggregate([
+          { $match: { customerId, isRedeemed: false } },
+          { $group: { _id: null, total: { $sum: '$points' } } },
+        ]),
+        CustomerLoyaltyPoint.find({ customerId }).sort({ createdAt: -1 }).limit(10).lean(),
       ]);
 
+      const totalPoints = totalPointsResult.length > 0 ? totalPointsResult[0].total : 0;
+
       return {
-        total: totalPoints._sum.points || 0,
-        recent: recentPoints,
+        total: totalPoints || 0,
+        recent: recentPoints.map((lp: any) => ({ id: lp._id, ...lp })),
       };
     } catch (error) {
       this.logger.error('Failed to get customer loyalty points:', error as Error);
@@ -284,15 +284,14 @@ export class CustomerService {
   // Get customer recent activities
   async getCustomerRecentActivities(customerId: string, limit: number = 10) {
     try {
-      const prisma = DatabaseConnection.getInstance().getPrismaClient();
+      const { CustomerActivity } = await import('../schemas/CustomerSchema');
       
-      const activities = await prisma.customerActivity.findMany({
-        where: { customerId },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-      });
+      const activities = await CustomerActivity.find({ customerId })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean();
 
-      return activities;
+      return activities.map((act: any) => ({ id: act._id, ...act }));
     } catch (error) {
       this.logger.error('Failed to get customer recent activities:', error as Error);
       throw error;
@@ -302,24 +301,22 @@ export class CustomerService {
   // Add loyalty points
   async addLoyaltyPoints(customerId: string, points: number, type: string, description: string, referenceId?: string) {
     try {
-      const prisma = DatabaseConnection.getInstance().getPrismaClient();
+      const { CustomerLoyaltyPoint } = await import('../schemas/CustomerSchema');
       
-      const loyaltyPoint = await prisma.customerLoyaltyPoint.create({
-        data: {
-          customerId,
-          points,
-          type: type as any,
-          description,
-          referenceId: referenceId || null,
-          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
-        },
+      const loyaltyPoint = await CustomerLoyaltyPoint.create({
+        customerId,
+        points,
+        type: type as any,
+        description,
+        referenceId: referenceId || undefined,
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
       });
 
       // Log customer activity
       await this.logCustomerActivity(customerId, 'LOYALTY_POINTS_EARNED', `Earned ${points} loyalty points`);
 
       this.logger.info('Loyalty points added successfully', { customerId, points, type });
-      return loyaltyPoint;
+      return { id: loyaltyPoint._id, ...loyaltyPoint.toObject() };
     } catch (error) {
       this.logger.error('Failed to add loyalty points:', error as Error);
       throw error;
@@ -335,25 +332,23 @@ export class CustomerService {
         throw new Error('Insufficient loyalty points');
       }
 
-      const prisma = DatabaseConnection.getInstance().getPrismaClient();
+      const { CustomerLoyaltyPoint } = await import('../schemas/CustomerSchema');
       
-      const loyaltyPoint = await prisma.customerLoyaltyPoint.create({
-        data: {
-          customerId,
-          points: -points, // Negative points for redemption
-          type: 'REDEEMED',
-          description,
-          referenceId: referenceId || null,
-          isRedeemed: true,
-          redeemedAt: new Date(),
-        },
+      const loyaltyPoint = await CustomerLoyaltyPoint.create({
+        customerId,
+        points: -points, // Negative points for redemption
+        type: 'REDEEMED',
+        description,
+        referenceId: referenceId || undefined,
+        isRedeemed: true,
+        redeemedAt: new Date(),
       });
 
       // Log customer activity
       await this.logCustomerActivity(customerId, 'LOYALTY_POINTS_REDEEMED', `Redeemed ${points} loyalty points`);
 
       this.logger.info('Loyalty points redeemed successfully', { customerId, points });
-      return loyaltyPoint;
+      return { id: loyaltyPoint._id, ...loyaltyPoint.toObject() };
     } catch (error) {
       this.logger.error('Failed to redeem loyalty points:', error as Error);
       throw error;
@@ -363,15 +358,13 @@ export class CustomerService {
   // Log customer activity
   async logCustomerActivity(customerId: string, activityType: string, description: string, metadata?: any) {
     try {
-      const prisma = DatabaseConnection.getInstance().getPrismaClient();
+      const { CustomerActivity } = await import('../schemas/CustomerSchema');
       
-      await prisma.customerActivity.create({
-        data: {
-          customerId,
-          activityType: activityType as any,
-          description,
-          metadata: metadata ? JSON.stringify(metadata) : null,
-        },
+      await CustomerActivity.create({
+        customerId,
+        activityType: activityType as any,
+        description,
+        metadata: metadata || undefined,
       });
     } catch (error) {
       this.logger.error('Failed to log customer activity:', error as Error);
@@ -382,17 +375,15 @@ export class CustomerService {
   // Send notification to customer
   async sendCustomerNotification(customerId: string, type: string, title: string, message: string, metadata?: any) {
     try {
-      const prisma = DatabaseConnection.getInstance().getPrismaClient();
+      const { CustomerNotification } = await import('../schemas/CustomerSchema');
       
       // Create notification record
-      const notification = await prisma.customerNotification.create({
-        data: {
-          customerId,
-          type: type as any,
-          title,
-          message,
-          metadata: metadata ? JSON.stringify(metadata) : null,
-        },
+      const notification = await CustomerNotification.create({
+        customerId,
+        type: type as any,
+        title,
+        message,
+        metadata: metadata || undefined,
       });
 
       // Get customer details for email
@@ -410,7 +401,7 @@ export class CustomerService {
       }
 
       this.logger.info('Customer notification sent successfully', { customerId, type });
-      return notification;
+      return { id: notification._id, ...notification.toObject() };
     } catch (error) {
       this.logger.error('Failed to send customer notification:', error as Error);
       throw error;

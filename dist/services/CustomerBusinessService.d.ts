@@ -1,2112 +1,13 @@
-import { Request, Response, NextFunction } from 'express';
-import { AuthenticatedRequest } from '../middleware/AuthMiddleware';
-import { CustomerBusinessService } from '../services/CustomerBusinessService';
-export declare class CustomerController {
-    private customerService;
+import { CreateCustomerData, UpdateCustomerData, CustomerProfileData, CustomerPreferencesData, CustomerAddressData, CustomerSearchFilters, CustomerPaginationOptions } from '../models/Customer';
+import KafkaService from '../kafka/KafkaService';
+export declare class CustomerBusinessService {
+    private customerModel;
+    private redisService;
+    private emailService;
+    private kafkaService;
     private logger;
-    constructor(customerService: CustomerBusinessService);
-    createCustomer: (req: Request, res: Response, next: NextFunction) => Promise<void>;
-    getCustomerById: (req: AuthenticatedRequest, res: Response, next: NextFunction) => Promise<void>;
-    getCustomerByEmail: (req: Request, res: Response, next: NextFunction) => Promise<void>;
-    updateCustomer: (req: AuthenticatedRequest, res: Response, next: NextFunction) => Promise<void>;
-    deleteCustomer: (req: AuthenticatedRequest, res: Response, next: NextFunction) => Promise<void>;
-    searchCustomers: (req: Request, res: Response, next: NextFunction) => Promise<void>;
-    updateCustomerProfile: (req: AuthenticatedRequest, res: Response, next: NextFunction) => Promise<void>;
-    updateCustomerPreferences: (req: AuthenticatedRequest, res: Response, next: NextFunction) => Promise<void>;
-    addCustomerAddress: (req: AuthenticatedRequest, res: Response, next: NextFunction) => Promise<void>;
-    updateCustomerAddress: (req: Request, res: Response, next: NextFunction) => Promise<void>;
-    deleteCustomerAddress: (req: Request, res: Response, next: NextFunction) => Promise<void>;
-    getCustomerAddresses: (req: AuthenticatedRequest, res: Response, next: NextFunction) => Promise<void>;
-    verifyCustomer: (req: AuthenticatedRequest, res: Response, next: NextFunction) => Promise<void>;
-    getCustomerStats: (_req: Request, res: Response, next: NextFunction) => Promise<void>;
-    updateLastLogin: (req: AuthenticatedRequest, res: Response, next: NextFunction) => Promise<void>;
-    getCustomerByIdGraphQL(customerId: string): Promise<any>;
-    getCustomerByEmailGraphQL(email: string): Promise<{
-        profile: {
-            _id: string;
-            customerId: string;
-            avatar?: string;
-            bio?: string;
-            preferences?: import("mongoose").FlattenMaps<Record<string, any>>;
-            emergencyContact?: string;
-            dietaryRestrictions?: string;
-            specialRequests?: string;
-            createdAt: Date;
-            updatedAt: Date;
-            $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomerProfile, keyof Paths> & Paths;
-            $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomerProfile;
-            $clone: () => import("../schemas/CustomerSchema").ICustomerProfile;
-            $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
-            $getAllSubdocs: () => import("mongoose").Document[];
-            $ignore: (path: string) => void;
-            $isDefault: (path?: string) => boolean;
-            $isDeleted: (val?: boolean) => boolean;
-            $getPopulatedDocs: () => import("mongoose").Document[];
-            $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomerProfile;
-            $isEmpty: (path: string) => boolean;
-            $isValid: (path: string) => boolean;
-            $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
-            $markValid: (path: string) => void;
-            $model: {
-                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                    _id: import("mongoose").Types.ObjectId;
-                } & {
-                    __v: number;
-                }, any>>(name: string): ModelType;
-                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-            };
-            $op: "save" | "validate" | "remove" | null;
-            $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomerProfile;
-            $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
-            $set: {
-                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
-                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
-                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerProfile;
-            };
-            $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
-            baseModelName?: string;
-            collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
-            db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
-            deleteOne: (options?: import("mongoose").QueryOptions) => any;
-            depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerProfile, Paths>;
-            directModifiedPaths: () => Array<string>;
-            equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
-            errors?: import("mongoose").Error.ValidationError;
-            get: {
-                <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
-                (path: string, type?: any, options?: any): any;
-            };
-            getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerProfile>;
-            id: any;
-            increment: () => import("../schemas/CustomerSchema").ICustomerProfile;
-            init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerProfile;
-            invalidate: {
-                <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-                (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-            };
-            isDirectModified: {
-                <T extends string | number | symbol>(path: T | T[]): boolean;
-                (path: string | Array<string>): boolean;
-            };
-            isDirectSelected: {
-                <T extends string | number | symbol>(path: T): boolean;
-                (path: string): boolean;
-            };
-            isInit: {
-                <T extends string | number | symbol>(path: T): boolean;
-                (path: string): boolean;
-            };
-            isModified: {
-                <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
-                    ignoreAtomics?: boolean;
-                } | null): boolean;
-                (path?: string | Array<string>, options?: {
-                    ignoreAtomics?: boolean;
-                } | null): boolean;
-            };
-            isNew: boolean;
-            isSelected: {
-                <T extends string | number | symbol>(path: T): boolean;
-                (path: string): boolean;
-            };
-            markModified: {
-                <T extends string | number | symbol>(path: T, scope?: any): void;
-                (path: string, scope?: any): void;
-            };
-            model: {
-                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                    _id: import("mongoose").Types.ObjectId;
-                } & {
-                    __v: number;
-                }, any>>(name: string): ModelType;
-                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-            };
-            modifiedPaths: (options?: {
-                includeChildren?: boolean;
-            }) => Array<string>;
-            overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerProfile;
-            $parent: () => import("mongoose").Document | undefined;
-            populate: {
-                <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerProfile, Paths>>;
-                <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerProfile, Paths>>;
-            };
-            populated: (path: string) => any;
-            replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerProfile, {}, unknown, "find", Record<string, never>>;
-            save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomerProfile>;
-            schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
-                [x: number]: unknown;
-                [x: symbol]: unknown;
-                [x: string]: unknown;
-            }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
-                [x: number]: unknown;
-                [x: symbol]: unknown;
-                [x: string]: unknown;
-            }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
-                [x: number]: unknown;
-                [x: symbol]: unknown;
-                [x: string]: unknown;
-            }> & Required<{
-                _id: unknown;
-            }> & {
-                __v: number;
-            }>>;
-            set: {
-                <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
-                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
-                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
-                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerProfile;
-            };
-            toJSON: {
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): Omit<{
-                    [x: string]: any;
-                }, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): {
-                    [x: string]: any;
-                };
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    flattenObjectIds: true;
-                }): {
-                    [x: string]: any;
-                    [x: number]: any;
-                    [x: symbol]: any;
-                };
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                }): Omit<any, "__v">;
-                (options?: import("mongoose").ToObjectOptions & {
-                    flattenMaps?: true;
-                    flattenObjectIds?: false;
-                }): import("mongoose").FlattenMaps<any>;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: false;
-                }): import("mongoose").FlattenMaps<any>;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: true;
-                }): {
-                    [x: string]: any;
-                };
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                    flattenObjectIds: true;
-                }): any;
-                <T = any>(options?: import("mongoose").ToObjectOptions & {
-                    flattenMaps?: true;
-                    flattenObjectIds?: false;
-                }): import("mongoose").FlattenMaps<T>;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: false;
-                }): import("mongoose").FlattenMaps<T>;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: true;
-                }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                }): T;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                    flattenObjectIds: true;
-                }): import("mongoose").ObjectIdToString<T>;
-            };
-            toObject: {
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    flattenObjectIds: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: true;
-                }): any;
-                (options?: import("mongoose").ToObjectOptions): any;
-                <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
-                    __v: number;
-                };
-            };
-            unmarkModified: {
-                <T extends string | number | symbol>(path: T): void;
-                (path: string): void;
-            };
-            updateOne: (update?: import("mongoose").UpdateWithAggregationPipeline | import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerProfile> | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerProfile, {}, unknown, "find", Record<string, never>>;
-            validate: {
-                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
-                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
-                (options: {
-                    pathsToSkip?: import("mongoose").pathsToSkip;
-                }): Promise<void>;
-            };
-            validateSync: {
-                (options: {
-                    pathsToSkip?: import("mongoose").pathsToSkip;
-                    [k: string]: any;
-                }): import("mongoose").Error.ValidationError | null;
-                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-            };
-            __v: number;
-        } | null;
-        preferences: {
-            _id: string;
-            customerId: string;
-            language: string;
-            currency: string;
-            timezone: string;
-            emailNotifications: boolean;
-            smsNotifications: boolean;
-            pushNotifications: boolean;
-            marketingEmails: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomerPreferences, keyof Paths> & Paths;
-            $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomerPreferences;
-            $clone: () => import("../schemas/CustomerSchema").ICustomerPreferences;
-            $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
-            $getAllSubdocs: () => import("mongoose").Document[];
-            $ignore: (path: string) => void;
-            $isDefault: (path?: string) => boolean;
-            $isDeleted: (val?: boolean) => boolean;
-            $getPopulatedDocs: () => import("mongoose").Document[];
-            $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomerPreferences;
-            $isEmpty: (path: string) => boolean;
-            $isValid: (path: string) => boolean;
-            $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
-            $markValid: (path: string) => void;
-            $model: {
-                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                    _id: import("mongoose").Types.ObjectId;
-                } & {
-                    __v: number;
-                }, any>>(name: string): ModelType;
-                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-            };
-            $op: "save" | "validate" | "remove" | null;
-            $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomerPreferences;
-            $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
-            $set: {
-                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
-                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
-                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerPreferences;
-            };
-            $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
-            baseModelName?: string;
-            collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
-            db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
-            deleteOne: (options?: import("mongoose").QueryOptions) => any;
-            depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerPreferences, Paths>;
-            directModifiedPaths: () => Array<string>;
-            equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
-            errors?: import("mongoose").Error.ValidationError;
-            get: {
-                <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
-                (path: string, type?: any, options?: any): any;
-            };
-            getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerPreferences>;
-            id: any;
-            increment: () => import("../schemas/CustomerSchema").ICustomerPreferences;
-            init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerPreferences;
-            invalidate: {
-                <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-                (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-            };
-            isDirectModified: {
-                <T extends string | number | symbol>(path: T | T[]): boolean;
-                (path: string | Array<string>): boolean;
-            };
-            isDirectSelected: {
-                <T extends string | number | symbol>(path: T): boolean;
-                (path: string): boolean;
-            };
-            isInit: {
-                <T extends string | number | symbol>(path: T): boolean;
-                (path: string): boolean;
-            };
-            isModified: {
-                <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
-                    ignoreAtomics?: boolean;
-                } | null): boolean;
-                (path?: string | Array<string>, options?: {
-                    ignoreAtomics?: boolean;
-                } | null): boolean;
-            };
-            isNew: boolean;
-            isSelected: {
-                <T extends string | number | symbol>(path: T): boolean;
-                (path: string): boolean;
-            };
-            markModified: {
-                <T extends string | number | symbol>(path: T, scope?: any): void;
-                (path: string, scope?: any): void;
-            };
-            model: {
-                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                    _id: import("mongoose").Types.ObjectId;
-                } & {
-                    __v: number;
-                }, any>>(name: string): ModelType;
-                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-            };
-            modifiedPaths: (options?: {
-                includeChildren?: boolean;
-            }) => Array<string>;
-            overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerPreferences;
-            $parent: () => import("mongoose").Document | undefined;
-            populate: {
-                <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerPreferences, Paths>>;
-                <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerPreferences, Paths>>;
-            };
-            populated: (path: string) => any;
-            replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerPreferences, {}, unknown, "find", Record<string, never>>;
-            save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomerPreferences>;
-            schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
-                [x: number]: unknown;
-                [x: symbol]: unknown;
-                [x: string]: unknown;
-            }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
-                [x: number]: unknown;
-                [x: symbol]: unknown;
-                [x: string]: unknown;
-            }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
-                [x: number]: unknown;
-                [x: symbol]: unknown;
-                [x: string]: unknown;
-            }> & Required<{
-                _id: unknown;
-            }> & {
-                __v: number;
-            }>>;
-            set: {
-                <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
-                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
-                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
-                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerPreferences;
-            };
-            toJSON: {
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): Omit<{
-                    [x: string]: any;
-                }, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): {
-                    [x: string]: any;
-                };
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    flattenObjectIds: true;
-                }): {
-                    [x: string]: any;
-                    [x: number]: any;
-                    [x: symbol]: any;
-                };
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                }): Omit<any, "__v">;
-                (options?: import("mongoose").ToObjectOptions & {
-                    flattenMaps?: true;
-                    flattenObjectIds?: false;
-                }): import("mongoose").FlattenMaps<any>;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: false;
-                }): import("mongoose").FlattenMaps<any>;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: true;
-                }): {
-                    [x: string]: any;
-                };
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                    flattenObjectIds: true;
-                }): any;
-                <T = any>(options?: import("mongoose").ToObjectOptions & {
-                    flattenMaps?: true;
-                    flattenObjectIds?: false;
-                }): import("mongoose").FlattenMaps<T>;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: false;
-                }): import("mongoose").FlattenMaps<T>;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: true;
-                }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                }): T;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                    flattenObjectIds: true;
-                }): import("mongoose").ObjectIdToString<T>;
-            };
-            toObject: {
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    flattenObjectIds: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: true;
-                }): any;
-                (options?: import("mongoose").ToObjectOptions): any;
-                <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
-                    __v: number;
-                };
-            };
-            unmarkModified: {
-                <T extends string | number | symbol>(path: T): void;
-                (path: string): void;
-            };
-            updateOne: (update?: import("mongoose").UpdateWithAggregationPipeline | import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerPreferences> | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerPreferences, {}, unknown, "find", Record<string, never>>;
-            validate: {
-                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
-                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
-                (options: {
-                    pathsToSkip?: import("mongoose").pathsToSkip;
-                }): Promise<void>;
-            };
-            validateSync: {
-                (options: {
-                    pathsToSkip?: import("mongoose").pathsToSkip;
-                    [k: string]: any;
-                }): import("mongoose").Error.ValidationError | null;
-                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-            };
-            __v: number;
-        } | null;
-        addresses: {
-            _id: string;
-            customerId: string;
-            type: import("../schemas/CustomerSchema").AddressType;
-            addressLine1: string;
-            addressLine2?: string;
-            city: string;
-            state: string;
-            postalCode: string;
-            country: string;
-            isDefault: boolean;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomerAddress, keyof Paths> & Paths;
-            $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomerAddress;
-            $clone: () => import("../schemas/CustomerSchema").ICustomerAddress;
-            $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
-            $getAllSubdocs: () => import("mongoose").Document[];
-            $ignore: (path: string) => void;
-            $isDefault: (path?: string) => boolean;
-            $isDeleted: (val?: boolean) => boolean;
-            $getPopulatedDocs: () => import("mongoose").Document[];
-            $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomerAddress;
-            $isEmpty: (path: string) => boolean;
-            $isValid: (path: string) => boolean;
-            $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
-            $markValid: (path: string) => void;
-            $model: {
-                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                    _id: import("mongoose").Types.ObjectId;
-                } & {
-                    __v: number;
-                }, any>>(name: string): ModelType;
-                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-            };
-            $op: "save" | "validate" | "remove" | null;
-            $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomerAddress;
-            $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
-            $set: {
-                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
-                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
-                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerAddress;
-            };
-            $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
-            baseModelName?: string;
-            collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
-            db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
-            deleteOne: (options?: import("mongoose").QueryOptions) => any;
-            depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>;
-            directModifiedPaths: () => Array<string>;
-            equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
-            errors?: import("mongoose").Error.ValidationError;
-            get: {
-                <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
-                (path: string, type?: any, options?: any): any;
-            };
-            getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerAddress>;
-            id: any;
-            increment: () => import("../schemas/CustomerSchema").ICustomerAddress;
-            init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerAddress;
-            invalidate: {
-                <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-                (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-            };
-            isDirectModified: {
-                <T extends string | number | symbol>(path: T | T[]): boolean;
-                (path: string | Array<string>): boolean;
-            };
-            isDirectSelected: {
-                <T extends string | number | symbol>(path: T): boolean;
-                (path: string): boolean;
-            };
-            isInit: {
-                <T extends string | number | symbol>(path: T): boolean;
-                (path: string): boolean;
-            };
-            isModified: {
-                <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
-                    ignoreAtomics?: boolean;
-                } | null): boolean;
-                (path?: string | Array<string>, options?: {
-                    ignoreAtomics?: boolean;
-                } | null): boolean;
-            };
-            isNew: boolean;
-            isSelected: {
-                <T extends string | number | symbol>(path: T): boolean;
-                (path: string): boolean;
-            };
-            markModified: {
-                <T extends string | number | symbol>(path: T, scope?: any): void;
-                (path: string, scope?: any): void;
-            };
-            model: {
-                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                    _id: import("mongoose").Types.ObjectId;
-                } & {
-                    __v: number;
-                }, any>>(name: string): ModelType;
-                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-            };
-            modifiedPaths: (options?: {
-                includeChildren?: boolean;
-            }) => Array<string>;
-            overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerAddress;
-            $parent: () => import("mongoose").Document | undefined;
-            populate: {
-                <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>>;
-                <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>>;
-            };
-            populated: (path: string) => any;
-            replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerAddress, {}, unknown, "find", Record<string, never>>;
-            save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomerAddress>;
-            schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
-                [x: number]: unknown;
-                [x: symbol]: unknown;
-                [x: string]: unknown;
-            }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
-                [x: number]: unknown;
-                [x: symbol]: unknown;
-                [x: string]: unknown;
-            }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
-                [x: number]: unknown;
-                [x: symbol]: unknown;
-                [x: string]: unknown;
-            }> & Required<{
-                _id: unknown;
-            }> & {
-                __v: number;
-            }>>;
-            set: {
-                <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
-                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
-                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
-                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerAddress;
-            };
-            toJSON: {
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): Omit<{
-                    [x: string]: any;
-                }, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): {
-                    [x: string]: any;
-                };
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    flattenObjectIds: true;
-                }): {
-                    [x: string]: any;
-                    [x: number]: any;
-                    [x: symbol]: any;
-                };
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                }): Omit<any, "__v">;
-                (options?: import("mongoose").ToObjectOptions & {
-                    flattenMaps?: true;
-                    flattenObjectIds?: false;
-                }): import("mongoose").FlattenMaps<any>;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: false;
-                }): import("mongoose").FlattenMaps<any>;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: true;
-                }): {
-                    [x: string]: any;
-                };
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                    flattenObjectIds: true;
-                }): any;
-                <T = any>(options?: import("mongoose").ToObjectOptions & {
-                    flattenMaps?: true;
-                    flattenObjectIds?: false;
-                }): import("mongoose").FlattenMaps<T>;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: false;
-                }): import("mongoose").FlattenMaps<T>;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: true;
-                }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                }): T;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                    flattenObjectIds: true;
-                }): import("mongoose").ObjectIdToString<T>;
-            };
-            toObject: {
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    flattenObjectIds: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: true;
-                }): any;
-                (options?: import("mongoose").ToObjectOptions): any;
-                <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
-                    __v: number;
-                };
-            };
-            unmarkModified: {
-                <T extends string | number | symbol>(path: T): void;
-                (path: string): void;
-            };
-            updateOne: (update?: import("mongoose").UpdateWithAggregationPipeline | import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerAddress> | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerAddress, {}, unknown, "find", Record<string, never>>;
-            validate: {
-                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
-                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
-                (options: {
-                    pathsToSkip?: import("mongoose").pathsToSkip;
-                }): Promise<void>;
-            };
-            validateSync: {
-                (options: {
-                    pathsToSkip?: import("mongoose").pathsToSkip;
-                    [k: string]: any;
-                }): import("mongoose").Error.ValidationError | null;
-                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-            };
-            __v: number;
-        }[];
-        _id: string;
-        email: string;
-        phone?: string;
-        firstName: string;
-        lastName: string;
-        dateOfBirth?: Date;
-        gender?: import("../schemas/CustomerSchema").Gender;
-        isVerified: boolean;
-        isActive: boolean;
-        lastLoginAt?: Date;
-        createdAt: Date;
-        updatedAt: Date;
-        $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomer, keyof Paths> & Paths;
-        $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomer;
-        $clone: () => import("../schemas/CustomerSchema").ICustomer;
-        $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
-        $getAllSubdocs: () => import("mongoose").Document[];
-        $ignore: (path: string) => void;
-        $isDefault: (path?: string) => boolean;
-        $isDeleted: (val?: boolean) => boolean;
-        $getPopulatedDocs: () => import("mongoose").Document[];
-        $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomer;
-        $isEmpty: (path: string) => boolean;
-        $isValid: (path: string) => boolean;
-        $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
-        $markValid: (path: string) => void;
-        $model: {
-            <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                _id: import("mongoose").Types.ObjectId;
-            } & {
-                __v: number;
-            }, any>>(name: string): ModelType;
-            <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-        };
-        $op: "save" | "validate" | "remove" | null;
-        $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomer;
-        $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
-        $set: {
-            (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
-            (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
-            (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomer;
-        };
-        $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
-        baseModelName?: string;
-        collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
-        db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
-        deleteOne: (options?: import("mongoose").QueryOptions) => any;
-        depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomer, Paths>;
-        directModifiedPaths: () => Array<string>;
-        equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
-        errors?: import("mongoose").Error.ValidationError;
-        get: {
-            <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
-            (path: string, type?: any, options?: any): any;
-        };
-        getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomer>;
-        id: any;
-        increment: () => import("../schemas/CustomerSchema").ICustomer;
-        init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomer;
-        invalidate: {
-            <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-            (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-        };
-        isDirectModified: {
-            <T extends string | number | symbol>(path: T | T[]): boolean;
-            (path: string | Array<string>): boolean;
-        };
-        isDirectSelected: {
-            <T extends string | number | symbol>(path: T): boolean;
-            (path: string): boolean;
-        };
-        isInit: {
-            <T extends string | number | symbol>(path: T): boolean;
-            (path: string): boolean;
-        };
-        isModified: {
-            <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
-                ignoreAtomics?: boolean;
-            } | null): boolean;
-            (path?: string | Array<string>, options?: {
-                ignoreAtomics?: boolean;
-            } | null): boolean;
-        };
-        isNew: boolean;
-        isSelected: {
-            <T extends string | number | symbol>(path: T): boolean;
-            (path: string): boolean;
-        };
-        markModified: {
-            <T extends string | number | symbol>(path: T, scope?: any): void;
-            (path: string, scope?: any): void;
-        };
-        model: {
-            <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                _id: import("mongoose").Types.ObjectId;
-            } & {
-                __v: number;
-            }, any>>(name: string): ModelType;
-            <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-        };
-        modifiedPaths: (options?: {
-            includeChildren?: boolean;
-        }) => Array<string>;
-        overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomer;
-        $parent: () => import("mongoose").Document | undefined;
-        populate: {
-            <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomer, Paths>>;
-            <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomer, Paths>>;
-        };
-        populated: (path: string) => any;
-        replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomer, {}, unknown, "find", Record<string, never>>;
-        save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomer>;
-        schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
-            [x: number]: unknown;
-            [x: symbol]: unknown;
-            [x: string]: unknown;
-        }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
-            [x: number]: unknown;
-            [x: symbol]: unknown;
-            [x: string]: unknown;
-        }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
-            [x: number]: unknown;
-            [x: symbol]: unknown;
-            [x: string]: unknown;
-        }> & Required<{
-            _id: unknown;
-        }> & {
-            __v: number;
-        }>>;
-        set: {
-            <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
-            (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
-            (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
-            (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomer;
-        };
-        toJSON: {
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-                virtuals: true;
-                flattenObjectIds: true;
-            }): Omit<{
-                [x: string]: any;
-            }, "__v">;
-            (options: import("mongoose").ToObjectOptions & {
-                virtuals: true;
-                flattenObjectIds: true;
-            }): {
-                [x: string]: any;
-            };
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-                virtuals: true;
-            }): Omit<any, "__v">;
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-                flattenObjectIds: true;
-            }): {
-                [x: string]: any;
-                [x: number]: any;
-                [x: symbol]: any;
-            };
-            (options: import("mongoose").ToObjectOptions & {
-                virtuals: true;
-            }): any;
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-            }): Omit<any, "__v">;
-            (options?: import("mongoose").ToObjectOptions & {
-                flattenMaps?: true;
-                flattenObjectIds?: false;
-            }): import("mongoose").FlattenMaps<any>;
-            (options: import("mongoose").ToObjectOptions & {
-                flattenObjectIds: false;
-            }): import("mongoose").FlattenMaps<any>;
-            (options: import("mongoose").ToObjectOptions & {
-                flattenObjectIds: true;
-            }): {
-                [x: string]: any;
-            };
-            (options: import("mongoose").ToObjectOptions & {
-                flattenMaps: false;
-            }): any;
-            (options: import("mongoose").ToObjectOptions & {
-                flattenMaps: false;
-                flattenObjectIds: true;
-            }): any;
-            <T = any>(options?: import("mongoose").ToObjectOptions & {
-                flattenMaps?: true;
-                flattenObjectIds?: false;
-            }): import("mongoose").FlattenMaps<T>;
-            <T = any>(options: import("mongoose").ToObjectOptions & {
-                flattenObjectIds: false;
-            }): import("mongoose").FlattenMaps<T>;
-            <T = any>(options: import("mongoose").ToObjectOptions & {
-                flattenObjectIds: true;
-            }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
-            <T = any>(options: import("mongoose").ToObjectOptions & {
-                flattenMaps: false;
-            }): T;
-            <T = any>(options: import("mongoose").ToObjectOptions & {
-                flattenMaps: false;
-                flattenObjectIds: true;
-            }): import("mongoose").ObjectIdToString<T>;
-        };
-        toObject: {
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-                virtuals: true;
-                flattenObjectIds: true;
-            }): Omit<any, "__v">;
-            (options: import("mongoose").ToObjectOptions & {
-                virtuals: true;
-                flattenObjectIds: true;
-            }): any;
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-                flattenObjectIds: true;
-            }): Omit<any, "__v">;
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-                virtuals: true;
-            }): Omit<any, "__v">;
-            (options: import("mongoose").ToObjectOptions & {
-                virtuals: true;
-            }): any;
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-            }): Omit<any, "__v">;
-            (options: import("mongoose").ToObjectOptions & {
-                flattenObjectIds: true;
-            }): any;
-            (options?: import("mongoose").ToObjectOptions): any;
-            <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
-                __v: number;
-            };
-        };
-        unmarkModified: {
-            <T extends string | number | symbol>(path: T): void;
-            (path: string): void;
-        };
-        updateOne: (update?: import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomer> | import("mongoose").UpdateWithAggregationPipeline | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomer, {}, unknown, "find", Record<string, never>>;
-        validate: {
-            <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
-            (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
-            (options: {
-                pathsToSkip?: import("mongoose").pathsToSkip;
-            }): Promise<void>;
-        };
-        validateSync: {
-            (options: {
-                pathsToSkip?: import("mongoose").pathsToSkip;
-                [k: string]: any;
-            }): import("mongoose").Error.ValidationError | null;
-            <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-            (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-        };
-        __v: number;
-    }>;
-    searchCustomersGraphQL(filters: any, pagination: any): Promise<{
-        customers: {
-            profile: {
-                _id: string;
-                customerId: string;
-                avatar?: string;
-                bio?: string;
-                preferences?: import("mongoose").FlattenMaps<Record<string, any>>;
-                emergencyContact?: string;
-                dietaryRestrictions?: string;
-                specialRequests?: string;
-                createdAt: Date;
-                updatedAt: Date;
-                $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomerProfile, keyof Paths> & Paths;
-                $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomerProfile;
-                $clone: () => import("../schemas/CustomerSchema").ICustomerProfile;
-                $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
-                $getAllSubdocs: () => import("mongoose").Document[];
-                $ignore: (path: string) => void;
-                $isDefault: (path?: string) => boolean;
-                $isDeleted: (val?: boolean) => boolean;
-                $getPopulatedDocs: () => import("mongoose").Document[];
-                $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomerProfile;
-                $isEmpty: (path: string) => boolean;
-                $isValid: (path: string) => boolean;
-                $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
-                $markValid: (path: string) => void;
-                $model: {
-                    <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                        _id: import("mongoose").Types.ObjectId;
-                    } & {
-                        __v: number;
-                    }, any>>(name: string): ModelType;
-                    <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-                };
-                $op: "save" | "validate" | "remove" | null;
-                $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomerProfile;
-                $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
-                $set: {
-                    (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
-                    (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
-                    (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerProfile;
-                };
-                $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
-                baseModelName?: string;
-                collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
-                db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
-                deleteOne: (options?: import("mongoose").QueryOptions) => any;
-                depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerProfile, Paths>;
-                directModifiedPaths: () => Array<string>;
-                equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
-                errors?: import("mongoose").Error.ValidationError;
-                get: {
-                    <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
-                    (path: string, type?: any, options?: any): any;
-                };
-                getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerProfile>;
-                id: any;
-                increment: () => import("../schemas/CustomerSchema").ICustomerProfile;
-                init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerProfile;
-                invalidate: {
-                    <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-                    (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-                };
-                isDirectModified: {
-                    <T extends string | number | symbol>(path: T | T[]): boolean;
-                    (path: string | Array<string>): boolean;
-                };
-                isDirectSelected: {
-                    <T extends string | number | symbol>(path: T): boolean;
-                    (path: string): boolean;
-                };
-                isInit: {
-                    <T extends string | number | symbol>(path: T): boolean;
-                    (path: string): boolean;
-                };
-                isModified: {
-                    <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
-                        ignoreAtomics?: boolean;
-                    } | null): boolean;
-                    (path?: string | Array<string>, options?: {
-                        ignoreAtomics?: boolean;
-                    } | null): boolean;
-                };
-                isNew: boolean;
-                isSelected: {
-                    <T extends string | number | symbol>(path: T): boolean;
-                    (path: string): boolean;
-                };
-                markModified: {
-                    <T extends string | number | symbol>(path: T, scope?: any): void;
-                    (path: string, scope?: any): void;
-                };
-                model: {
-                    <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                        _id: import("mongoose").Types.ObjectId;
-                    } & {
-                        __v: number;
-                    }, any>>(name: string): ModelType;
-                    <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-                };
-                modifiedPaths: (options?: {
-                    includeChildren?: boolean;
-                }) => Array<string>;
-                overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerProfile;
-                $parent: () => import("mongoose").Document | undefined;
-                populate: {
-                    <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerProfile, Paths>>;
-                    <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerProfile, Paths>>;
-                };
-                populated: (path: string) => any;
-                replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerProfile, {}, unknown, "find", Record<string, never>>;
-                save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomerProfile>;
-                schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
-                    [x: number]: unknown;
-                    [x: symbol]: unknown;
-                    [x: string]: unknown;
-                }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
-                    [x: number]: unknown;
-                    [x: symbol]: unknown;
-                    [x: string]: unknown;
-                }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
-                    [x: number]: unknown;
-                    [x: symbol]: unknown;
-                    [x: string]: unknown;
-                }> & Required<{
-                    _id: unknown;
-                }> & {
-                    __v: number;
-                }>>;
-                set: {
-                    <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
-                    (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
-                    (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
-                    (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerProfile;
-                };
-                toJSON: {
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        virtuals: true;
-                        flattenObjectIds: true;
-                    }): Omit<{
-                        [x: string]: any;
-                    }, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        virtuals: true;
-                        flattenObjectIds: true;
-                    }): {
-                        [x: string]: any;
-                    };
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        virtuals: true;
-                    }): Omit<any, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        flattenObjectIds: true;
-                    }): {
-                        [x: string]: any;
-                        [x: number]: any;
-                        [x: symbol]: any;
-                    };
-                    (options: import("mongoose").ToObjectOptions & {
-                        virtuals: true;
-                    }): any;
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                    }): Omit<any, "__v">;
-                    (options?: import("mongoose").ToObjectOptions & {
-                        flattenMaps?: true;
-                        flattenObjectIds?: false;
-                    }): import("mongoose").FlattenMaps<any>;
-                    (options: import("mongoose").ToObjectOptions & {
-                        flattenObjectIds: false;
-                    }): import("mongoose").FlattenMaps<any>;
-                    (options: import("mongoose").ToObjectOptions & {
-                        flattenObjectIds: true;
-                    }): {
-                        [x: string]: any;
-                    };
-                    (options: import("mongoose").ToObjectOptions & {
-                        flattenMaps: false;
-                    }): any;
-                    (options: import("mongoose").ToObjectOptions & {
-                        flattenMaps: false;
-                        flattenObjectIds: true;
-                    }): any;
-                    <T = any>(options?: import("mongoose").ToObjectOptions & {
-                        flattenMaps?: true;
-                        flattenObjectIds?: false;
-                    }): import("mongoose").FlattenMaps<T>;
-                    <T = any>(options: import("mongoose").ToObjectOptions & {
-                        flattenObjectIds: false;
-                    }): import("mongoose").FlattenMaps<T>;
-                    <T = any>(options: import("mongoose").ToObjectOptions & {
-                        flattenObjectIds: true;
-                    }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
-                    <T = any>(options: import("mongoose").ToObjectOptions & {
-                        flattenMaps: false;
-                    }): T;
-                    <T = any>(options: import("mongoose").ToObjectOptions & {
-                        flattenMaps: false;
-                        flattenObjectIds: true;
-                    }): import("mongoose").ObjectIdToString<T>;
-                };
-                toObject: {
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        virtuals: true;
-                        flattenObjectIds: true;
-                    }): Omit<any, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        virtuals: true;
-                        flattenObjectIds: true;
-                    }): any;
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        flattenObjectIds: true;
-                    }): Omit<any, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        virtuals: true;
-                    }): Omit<any, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        virtuals: true;
-                    }): any;
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                    }): Omit<any, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        flattenObjectIds: true;
-                    }): any;
-                    (options?: import("mongoose").ToObjectOptions): any;
-                    <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
-                        __v: number;
-                    };
-                };
-                unmarkModified: {
-                    <T extends string | number | symbol>(path: T): void;
-                    (path: string): void;
-                };
-                updateOne: (update?: import("mongoose").UpdateWithAggregationPipeline | import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerProfile> | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerProfile, {}, unknown, "find", Record<string, never>>;
-                validate: {
-                    <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
-                    (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
-                    (options: {
-                        pathsToSkip?: import("mongoose").pathsToSkip;
-                    }): Promise<void>;
-                };
-                validateSync: {
-                    (options: {
-                        pathsToSkip?: import("mongoose").pathsToSkip;
-                        [k: string]: any;
-                    }): import("mongoose").Error.ValidationError | null;
-                    <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-                    (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-                };
-                __v: number;
-            } | null;
-            preferences: {
-                _id: string;
-                customerId: string;
-                language: string;
-                currency: string;
-                timezone: string;
-                emailNotifications: boolean;
-                smsNotifications: boolean;
-                pushNotifications: boolean;
-                marketingEmails: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomerPreferences, keyof Paths> & Paths;
-                $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomerPreferences;
-                $clone: () => import("../schemas/CustomerSchema").ICustomerPreferences;
-                $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
-                $getAllSubdocs: () => import("mongoose").Document[];
-                $ignore: (path: string) => void;
-                $isDefault: (path?: string) => boolean;
-                $isDeleted: (val?: boolean) => boolean;
-                $getPopulatedDocs: () => import("mongoose").Document[];
-                $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomerPreferences;
-                $isEmpty: (path: string) => boolean;
-                $isValid: (path: string) => boolean;
-                $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
-                $markValid: (path: string) => void;
-                $model: {
-                    <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                        _id: import("mongoose").Types.ObjectId;
-                    } & {
-                        __v: number;
-                    }, any>>(name: string): ModelType;
-                    <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-                };
-                $op: "save" | "validate" | "remove" | null;
-                $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomerPreferences;
-                $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
-                $set: {
-                    (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
-                    (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
-                    (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerPreferences;
-                };
-                $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
-                baseModelName?: string;
-                collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
-                db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
-                deleteOne: (options?: import("mongoose").QueryOptions) => any;
-                depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerPreferences, Paths>;
-                directModifiedPaths: () => Array<string>;
-                equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
-                errors?: import("mongoose").Error.ValidationError;
-                get: {
-                    <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
-                    (path: string, type?: any, options?: any): any;
-                };
-                getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerPreferences>;
-                id: any;
-                increment: () => import("../schemas/CustomerSchema").ICustomerPreferences;
-                init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerPreferences;
-                invalidate: {
-                    <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-                    (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-                };
-                isDirectModified: {
-                    <T extends string | number | symbol>(path: T | T[]): boolean;
-                    (path: string | Array<string>): boolean;
-                };
-                isDirectSelected: {
-                    <T extends string | number | symbol>(path: T): boolean;
-                    (path: string): boolean;
-                };
-                isInit: {
-                    <T extends string | number | symbol>(path: T): boolean;
-                    (path: string): boolean;
-                };
-                isModified: {
-                    <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
-                        ignoreAtomics?: boolean;
-                    } | null): boolean;
-                    (path?: string | Array<string>, options?: {
-                        ignoreAtomics?: boolean;
-                    } | null): boolean;
-                };
-                isNew: boolean;
-                isSelected: {
-                    <T extends string | number | symbol>(path: T): boolean;
-                    (path: string): boolean;
-                };
-                markModified: {
-                    <T extends string | number | symbol>(path: T, scope?: any): void;
-                    (path: string, scope?: any): void;
-                };
-                model: {
-                    <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                        _id: import("mongoose").Types.ObjectId;
-                    } & {
-                        __v: number;
-                    }, any>>(name: string): ModelType;
-                    <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-                };
-                modifiedPaths: (options?: {
-                    includeChildren?: boolean;
-                }) => Array<string>;
-                overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerPreferences;
-                $parent: () => import("mongoose").Document | undefined;
-                populate: {
-                    <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerPreferences, Paths>>;
-                    <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerPreferences, Paths>>;
-                };
-                populated: (path: string) => any;
-                replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerPreferences, {}, unknown, "find", Record<string, never>>;
-                save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomerPreferences>;
-                schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
-                    [x: number]: unknown;
-                    [x: symbol]: unknown;
-                    [x: string]: unknown;
-                }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
-                    [x: number]: unknown;
-                    [x: symbol]: unknown;
-                    [x: string]: unknown;
-                }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
-                    [x: number]: unknown;
-                    [x: symbol]: unknown;
-                    [x: string]: unknown;
-                }> & Required<{
-                    _id: unknown;
-                }> & {
-                    __v: number;
-                }>>;
-                set: {
-                    <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
-                    (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
-                    (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
-                    (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerPreferences;
-                };
-                toJSON: {
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        virtuals: true;
-                        flattenObjectIds: true;
-                    }): Omit<{
-                        [x: string]: any;
-                    }, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        virtuals: true;
-                        flattenObjectIds: true;
-                    }): {
-                        [x: string]: any;
-                    };
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        virtuals: true;
-                    }): Omit<any, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        flattenObjectIds: true;
-                    }): {
-                        [x: string]: any;
-                        [x: number]: any;
-                        [x: symbol]: any;
-                    };
-                    (options: import("mongoose").ToObjectOptions & {
-                        virtuals: true;
-                    }): any;
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                    }): Omit<any, "__v">;
-                    (options?: import("mongoose").ToObjectOptions & {
-                        flattenMaps?: true;
-                        flattenObjectIds?: false;
-                    }): import("mongoose").FlattenMaps<any>;
-                    (options: import("mongoose").ToObjectOptions & {
-                        flattenObjectIds: false;
-                    }): import("mongoose").FlattenMaps<any>;
-                    (options: import("mongoose").ToObjectOptions & {
-                        flattenObjectIds: true;
-                    }): {
-                        [x: string]: any;
-                    };
-                    (options: import("mongoose").ToObjectOptions & {
-                        flattenMaps: false;
-                    }): any;
-                    (options: import("mongoose").ToObjectOptions & {
-                        flattenMaps: false;
-                        flattenObjectIds: true;
-                    }): any;
-                    <T = any>(options?: import("mongoose").ToObjectOptions & {
-                        flattenMaps?: true;
-                        flattenObjectIds?: false;
-                    }): import("mongoose").FlattenMaps<T>;
-                    <T = any>(options: import("mongoose").ToObjectOptions & {
-                        flattenObjectIds: false;
-                    }): import("mongoose").FlattenMaps<T>;
-                    <T = any>(options: import("mongoose").ToObjectOptions & {
-                        flattenObjectIds: true;
-                    }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
-                    <T = any>(options: import("mongoose").ToObjectOptions & {
-                        flattenMaps: false;
-                    }): T;
-                    <T = any>(options: import("mongoose").ToObjectOptions & {
-                        flattenMaps: false;
-                        flattenObjectIds: true;
-                    }): import("mongoose").ObjectIdToString<T>;
-                };
-                toObject: {
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        virtuals: true;
-                        flattenObjectIds: true;
-                    }): Omit<any, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        virtuals: true;
-                        flattenObjectIds: true;
-                    }): any;
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        flattenObjectIds: true;
-                    }): Omit<any, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        virtuals: true;
-                    }): Omit<any, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        virtuals: true;
-                    }): any;
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                    }): Omit<any, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        flattenObjectIds: true;
-                    }): any;
-                    (options?: import("mongoose").ToObjectOptions): any;
-                    <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
-                        __v: number;
-                    };
-                };
-                unmarkModified: {
-                    <T extends string | number | symbol>(path: T): void;
-                    (path: string): void;
-                };
-                updateOne: (update?: import("mongoose").UpdateWithAggregationPipeline | import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerPreferences> | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerPreferences, {}, unknown, "find", Record<string, never>>;
-                validate: {
-                    <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
-                    (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
-                    (options: {
-                        pathsToSkip?: import("mongoose").pathsToSkip;
-                    }): Promise<void>;
-                };
-                validateSync: {
-                    (options: {
-                        pathsToSkip?: import("mongoose").pathsToSkip;
-                        [k: string]: any;
-                    }): import("mongoose").Error.ValidationError | null;
-                    <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-                    (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-                };
-                __v: number;
-            } | null;
-            addresses: {
-                _id: string;
-                customerId: string;
-                type: import("../schemas/CustomerSchema").AddressType;
-                addressLine1: string;
-                addressLine2?: string;
-                city: string;
-                state: string;
-                postalCode: string;
-                country: string;
-                isDefault: boolean;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomerAddress, keyof Paths> & Paths;
-                $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomerAddress;
-                $clone: () => import("../schemas/CustomerSchema").ICustomerAddress;
-                $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
-                $getAllSubdocs: () => import("mongoose").Document[];
-                $ignore: (path: string) => void;
-                $isDefault: (path?: string) => boolean;
-                $isDeleted: (val?: boolean) => boolean;
-                $getPopulatedDocs: () => import("mongoose").Document[];
-                $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomerAddress;
-                $isEmpty: (path: string) => boolean;
-                $isValid: (path: string) => boolean;
-                $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
-                $markValid: (path: string) => void;
-                $model: {
-                    <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                        _id: import("mongoose").Types.ObjectId;
-                    } & {
-                        __v: number;
-                    }, any>>(name: string): ModelType;
-                    <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-                };
-                $op: "save" | "validate" | "remove" | null;
-                $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomerAddress;
-                $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
-                $set: {
-                    (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
-                    (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
-                    (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerAddress;
-                };
-                $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
-                baseModelName?: string;
-                collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
-                db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
-                deleteOne: (options?: import("mongoose").QueryOptions) => any;
-                depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>;
-                directModifiedPaths: () => Array<string>;
-                equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
-                errors?: import("mongoose").Error.ValidationError;
-                get: {
-                    <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
-                    (path: string, type?: any, options?: any): any;
-                };
-                getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerAddress>;
-                id: any;
-                increment: () => import("../schemas/CustomerSchema").ICustomerAddress;
-                init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerAddress;
-                invalidate: {
-                    <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-                    (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-                };
-                isDirectModified: {
-                    <T extends string | number | symbol>(path: T | T[]): boolean;
-                    (path: string | Array<string>): boolean;
-                };
-                isDirectSelected: {
-                    <T extends string | number | symbol>(path: T): boolean;
-                    (path: string): boolean;
-                };
-                isInit: {
-                    <T extends string | number | symbol>(path: T): boolean;
-                    (path: string): boolean;
-                };
-                isModified: {
-                    <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
-                        ignoreAtomics?: boolean;
-                    } | null): boolean;
-                    (path?: string | Array<string>, options?: {
-                        ignoreAtomics?: boolean;
-                    } | null): boolean;
-                };
-                isNew: boolean;
-                isSelected: {
-                    <T extends string | number | symbol>(path: T): boolean;
-                    (path: string): boolean;
-                };
-                markModified: {
-                    <T extends string | number | symbol>(path: T, scope?: any): void;
-                    (path: string, scope?: any): void;
-                };
-                model: {
-                    <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                        _id: import("mongoose").Types.ObjectId;
-                    } & {
-                        __v: number;
-                    }, any>>(name: string): ModelType;
-                    <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-                };
-                modifiedPaths: (options?: {
-                    includeChildren?: boolean;
-                }) => Array<string>;
-                overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerAddress;
-                $parent: () => import("mongoose").Document | undefined;
-                populate: {
-                    <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>>;
-                    <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>>;
-                };
-                populated: (path: string) => any;
-                replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerAddress, {}, unknown, "find", Record<string, never>>;
-                save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomerAddress>;
-                schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
-                    [x: number]: unknown;
-                    [x: symbol]: unknown;
-                    [x: string]: unknown;
-                }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
-                    [x: number]: unknown;
-                    [x: symbol]: unknown;
-                    [x: string]: unknown;
-                }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
-                    [x: number]: unknown;
-                    [x: symbol]: unknown;
-                    [x: string]: unknown;
-                }> & Required<{
-                    _id: unknown;
-                }> & {
-                    __v: number;
-                }>>;
-                set: {
-                    <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
-                    (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
-                    (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
-                    (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerAddress;
-                };
-                toJSON: {
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        virtuals: true;
-                        flattenObjectIds: true;
-                    }): Omit<{
-                        [x: string]: any;
-                    }, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        virtuals: true;
-                        flattenObjectIds: true;
-                    }): {
-                        [x: string]: any;
-                    };
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        virtuals: true;
-                    }): Omit<any, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        flattenObjectIds: true;
-                    }): {
-                        [x: string]: any;
-                        [x: number]: any;
-                        [x: symbol]: any;
-                    };
-                    (options: import("mongoose").ToObjectOptions & {
-                        virtuals: true;
-                    }): any;
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                    }): Omit<any, "__v">;
-                    (options?: import("mongoose").ToObjectOptions & {
-                        flattenMaps?: true;
-                        flattenObjectIds?: false;
-                    }): import("mongoose").FlattenMaps<any>;
-                    (options: import("mongoose").ToObjectOptions & {
-                        flattenObjectIds: false;
-                    }): import("mongoose").FlattenMaps<any>;
-                    (options: import("mongoose").ToObjectOptions & {
-                        flattenObjectIds: true;
-                    }): {
-                        [x: string]: any;
-                    };
-                    (options: import("mongoose").ToObjectOptions & {
-                        flattenMaps: false;
-                    }): any;
-                    (options: import("mongoose").ToObjectOptions & {
-                        flattenMaps: false;
-                        flattenObjectIds: true;
-                    }): any;
-                    <T = any>(options?: import("mongoose").ToObjectOptions & {
-                        flattenMaps?: true;
-                        flattenObjectIds?: false;
-                    }): import("mongoose").FlattenMaps<T>;
-                    <T = any>(options: import("mongoose").ToObjectOptions & {
-                        flattenObjectIds: false;
-                    }): import("mongoose").FlattenMaps<T>;
-                    <T = any>(options: import("mongoose").ToObjectOptions & {
-                        flattenObjectIds: true;
-                    }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
-                    <T = any>(options: import("mongoose").ToObjectOptions & {
-                        flattenMaps: false;
-                    }): T;
-                    <T = any>(options: import("mongoose").ToObjectOptions & {
-                        flattenMaps: false;
-                        flattenObjectIds: true;
-                    }): import("mongoose").ObjectIdToString<T>;
-                };
-                toObject: {
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        virtuals: true;
-                        flattenObjectIds: true;
-                    }): Omit<any, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        virtuals: true;
-                        flattenObjectIds: true;
-                    }): any;
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        flattenObjectIds: true;
-                    }): Omit<any, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                        virtuals: true;
-                    }): Omit<any, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        virtuals: true;
-                    }): any;
-                    (options: import("mongoose").ToObjectOptions & {
-                        versionKey: false;
-                    }): Omit<any, "__v">;
-                    (options: import("mongoose").ToObjectOptions & {
-                        flattenObjectIds: true;
-                    }): any;
-                    (options?: import("mongoose").ToObjectOptions): any;
-                    <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
-                        __v: number;
-                    };
-                };
-                unmarkModified: {
-                    <T extends string | number | symbol>(path: T): void;
-                    (path: string): void;
-                };
-                updateOne: (update?: import("mongoose").UpdateWithAggregationPipeline | import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerAddress> | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerAddress, {}, unknown, "find", Record<string, never>>;
-                validate: {
-                    <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
-                    (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
-                    (options: {
-                        pathsToSkip?: import("mongoose").pathsToSkip;
-                    }): Promise<void>;
-                };
-                validateSync: {
-                    (options: {
-                        pathsToSkip?: import("mongoose").pathsToSkip;
-                        [k: string]: any;
-                    }): import("mongoose").Error.ValidationError | null;
-                    <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-                    (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-                };
-                __v: number;
-            }[];
-            _id: string;
-            email: string;
-            phone?: string;
-            firstName: string;
-            lastName: string;
-            dateOfBirth?: Date;
-            gender?: import("../schemas/CustomerSchema").Gender;
-            isVerified: boolean;
-            isActive: boolean;
-            lastLoginAt?: Date;
-            createdAt: Date;
-            updatedAt: Date;
-            $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomer, keyof Paths> & Paths;
-            $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomer;
-            $clone: () => import("../schemas/CustomerSchema").ICustomer;
-            $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
-            $getAllSubdocs: () => import("mongoose").Document[];
-            $ignore: (path: string) => void;
-            $isDefault: (path?: string) => boolean;
-            $isDeleted: (val?: boolean) => boolean;
-            $getPopulatedDocs: () => import("mongoose").Document[];
-            $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomer;
-            $isEmpty: (path: string) => boolean;
-            $isValid: (path: string) => boolean;
-            $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
-            $markValid: (path: string) => void;
-            $model: {
-                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                    _id: import("mongoose").Types.ObjectId;
-                } & {
-                    __v: number;
-                }, any>>(name: string): ModelType;
-                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-            };
-            $op: "save" | "validate" | "remove" | null;
-            $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomer;
-            $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
-            $set: {
-                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
-                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
-                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomer;
-            };
-            $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
-            baseModelName?: string;
-            collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
-            db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
-            deleteOne: (options?: import("mongoose").QueryOptions) => any;
-            depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomer, Paths>;
-            directModifiedPaths: () => Array<string>;
-            equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
-            errors?: import("mongoose").Error.ValidationError;
-            get: {
-                <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
-                (path: string, type?: any, options?: any): any;
-            };
-            getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomer>;
-            id: any;
-            increment: () => import("../schemas/CustomerSchema").ICustomer;
-            init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomer;
-            invalidate: {
-                <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-                (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-            };
-            isDirectModified: {
-                <T extends string | number | symbol>(path: T | T[]): boolean;
-                (path: string | Array<string>): boolean;
-            };
-            isDirectSelected: {
-                <T extends string | number | symbol>(path: T): boolean;
-                (path: string): boolean;
-            };
-            isInit: {
-                <T extends string | number | symbol>(path: T): boolean;
-                (path: string): boolean;
-            };
-            isModified: {
-                <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
-                    ignoreAtomics?: boolean;
-                } | null): boolean;
-                (path?: string | Array<string>, options?: {
-                    ignoreAtomics?: boolean;
-                } | null): boolean;
-            };
-            isNew: boolean;
-            isSelected: {
-                <T extends string | number | symbol>(path: T): boolean;
-                (path: string): boolean;
-            };
-            markModified: {
-                <T extends string | number | symbol>(path: T, scope?: any): void;
-                (path: string, scope?: any): void;
-            };
-            model: {
-                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                    _id: import("mongoose").Types.ObjectId;
-                } & {
-                    __v: number;
-                }, any>>(name: string): ModelType;
-                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-            };
-            modifiedPaths: (options?: {
-                includeChildren?: boolean;
-            }) => Array<string>;
-            overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomer;
-            $parent: () => import("mongoose").Document | undefined;
-            populate: {
-                <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomer, Paths>>;
-                <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomer, Paths>>;
-            };
-            populated: (path: string) => any;
-            replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomer, {}, unknown, "find", Record<string, never>>;
-            save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomer>;
-            schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
-                [x: number]: unknown;
-                [x: symbol]: unknown;
-                [x: string]: unknown;
-            }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
-                [x: number]: unknown;
-                [x: symbol]: unknown;
-                [x: string]: unknown;
-            }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
-                [x: number]: unknown;
-                [x: symbol]: unknown;
-                [x: string]: unknown;
-            }> & Required<{
-                _id: unknown;
-            }> & {
-                __v: number;
-            }>>;
-            set: {
-                <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
-                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
-                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
-                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomer;
-            };
-            toJSON: {
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): Omit<{
-                    [x: string]: any;
-                }, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): {
-                    [x: string]: any;
-                };
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    flattenObjectIds: true;
-                }): {
-                    [x: string]: any;
-                    [x: number]: any;
-                    [x: symbol]: any;
-                };
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                }): Omit<any, "__v">;
-                (options?: import("mongoose").ToObjectOptions & {
-                    flattenMaps?: true;
-                    flattenObjectIds?: false;
-                }): import("mongoose").FlattenMaps<any>;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: false;
-                }): import("mongoose").FlattenMaps<any>;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: true;
-                }): {
-                    [x: string]: any;
-                };
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                    flattenObjectIds: true;
-                }): any;
-                <T = any>(options?: import("mongoose").ToObjectOptions & {
-                    flattenMaps?: true;
-                    flattenObjectIds?: false;
-                }): import("mongoose").FlattenMaps<T>;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: false;
-                }): import("mongoose").FlattenMaps<T>;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: true;
-                }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                }): T;
-                <T = any>(options: import("mongoose").ToObjectOptions & {
-                    flattenMaps: false;
-                    flattenObjectIds: true;
-                }): import("mongoose").ObjectIdToString<T>;
-            };
-            toObject: {
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                    flattenObjectIds: true;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    flattenObjectIds: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                    virtuals: true;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    virtuals: true;
-                }): any;
-                (options: import("mongoose").ToObjectOptions & {
-                    versionKey: false;
-                }): Omit<any, "__v">;
-                (options: import("mongoose").ToObjectOptions & {
-                    flattenObjectIds: true;
-                }): any;
-                (options?: import("mongoose").ToObjectOptions): any;
-                <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
-                    __v: number;
-                };
-            };
-            unmarkModified: {
-                <T extends string | number | symbol>(path: T): void;
-                (path: string): void;
-            };
-            updateOne: (update?: import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomer> | import("mongoose").UpdateWithAggregationPipeline | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomer, {}, unknown, "find", Record<string, never>>;
-            validate: {
-                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
-                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
-                (options: {
-                    pathsToSkip?: import("mongoose").pathsToSkip;
-                }): Promise<void>;
-            };
-            validateSync: {
-                (options: {
-                    pathsToSkip?: import("mongoose").pathsToSkip;
-                    [k: string]: any;
-                }): import("mongoose").Error.ValidationError | null;
-                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-            };
-            __v: number;
-        }[];
-        pagination: {
-            page: number;
-            limit: number;
-            total: number;
-            pages: number;
-        };
-    }>;
-    getCustomerStatsGraphQL(): Promise<{
-        totalCustomers: number;
-        verifiedCustomers: number;
-        activeCustomers: number;
-        newCustomersThisMonth: number;
-        newCustomersThisWeek: number;
-        newCustomersToday: number;
-        verificationRate: number;
-    }>;
-    createCustomerGraphQL(input: any): Promise<{
+    constructor(kafkaService?: KafkaService);
+    createCustomer(customerData: CreateCustomerData, requestId?: string): Promise<{
         profile: {
             _id: string;
             customerId: string;
@@ -3652,7 +1553,8 @@ export declare class CustomerController {
         };
         __v: number;
     } | null>;
-    updateCustomerGraphQL(customerId: string, input: any): Promise<{
+    getCustomerById(customerId: string): Promise<any>;
+    getCustomerByEmail(email: string): Promise<{
         profile: {
             _id: string;
             customerId: string;
@@ -4686,8 +2588,2093 @@ export declare class CustomerController {
         };
         __v: number;
     }>;
-    deleteCustomerGraphQL(customerId: string): Promise<boolean>;
-    updateCustomerProfileGraphQL(customerId: string, input: any): Promise<{
+    updateCustomer(customerId: string, updateData: UpdateCustomerData, requestId?: string): Promise<{
+        profile: {
+            _id: string;
+            customerId: string;
+            avatar?: string;
+            bio?: string;
+            preferences?: import("mongoose").FlattenMaps<Record<string, any>>;
+            emergencyContact?: string;
+            dietaryRestrictions?: string;
+            specialRequests?: string;
+            createdAt: Date;
+            updatedAt: Date;
+            $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomerProfile, keyof Paths> & Paths;
+            $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomerProfile;
+            $clone: () => import("../schemas/CustomerSchema").ICustomerProfile;
+            $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
+            $getAllSubdocs: () => import("mongoose").Document[];
+            $ignore: (path: string) => void;
+            $isDefault: (path?: string) => boolean;
+            $isDeleted: (val?: boolean) => boolean;
+            $getPopulatedDocs: () => import("mongoose").Document[];
+            $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomerProfile;
+            $isEmpty: (path: string) => boolean;
+            $isValid: (path: string) => boolean;
+            $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
+            $markValid: (path: string) => void;
+            $model: {
+                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                    _id: import("mongoose").Types.ObjectId;
+                } & {
+                    __v: number;
+                }, any>>(name: string): ModelType;
+                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+            };
+            $op: "save" | "validate" | "remove" | null;
+            $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomerProfile;
+            $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
+            $set: {
+                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
+                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
+                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerProfile;
+            };
+            $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
+            baseModelName?: string;
+            collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
+            db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
+            deleteOne: (options?: import("mongoose").QueryOptions) => any;
+            depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerProfile, Paths>;
+            directModifiedPaths: () => Array<string>;
+            equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
+            errors?: import("mongoose").Error.ValidationError;
+            get: {
+                <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
+                (path: string, type?: any, options?: any): any;
+            };
+            getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerProfile>;
+            id: any;
+            increment: () => import("../schemas/CustomerSchema").ICustomerProfile;
+            init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerProfile;
+            invalidate: {
+                <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+                (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+            };
+            isDirectModified: {
+                <T extends string | number | symbol>(path: T | T[]): boolean;
+                (path: string | Array<string>): boolean;
+            };
+            isDirectSelected: {
+                <T extends string | number | symbol>(path: T): boolean;
+                (path: string): boolean;
+            };
+            isInit: {
+                <T extends string | number | symbol>(path: T): boolean;
+                (path: string): boolean;
+            };
+            isModified: {
+                <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
+                    ignoreAtomics?: boolean;
+                } | null): boolean;
+                (path?: string | Array<string>, options?: {
+                    ignoreAtomics?: boolean;
+                } | null): boolean;
+            };
+            isNew: boolean;
+            isSelected: {
+                <T extends string | number | symbol>(path: T): boolean;
+                (path: string): boolean;
+            };
+            markModified: {
+                <T extends string | number | symbol>(path: T, scope?: any): void;
+                (path: string, scope?: any): void;
+            };
+            model: {
+                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                    _id: import("mongoose").Types.ObjectId;
+                } & {
+                    __v: number;
+                }, any>>(name: string): ModelType;
+                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+            };
+            modifiedPaths: (options?: {
+                includeChildren?: boolean;
+            }) => Array<string>;
+            overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerProfile;
+            $parent: () => import("mongoose").Document | undefined;
+            populate: {
+                <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerProfile, Paths>>;
+                <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerProfile, Paths>>;
+            };
+            populated: (path: string) => any;
+            replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerProfile, {}, unknown, "find", Record<string, never>>;
+            save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomerProfile>;
+            schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
+                [x: number]: unknown;
+                [x: symbol]: unknown;
+                [x: string]: unknown;
+            }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
+                [x: number]: unknown;
+                [x: symbol]: unknown;
+                [x: string]: unknown;
+            }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
+                [x: number]: unknown;
+                [x: symbol]: unknown;
+                [x: string]: unknown;
+            }> & Required<{
+                _id: unknown;
+            }> & {
+                __v: number;
+            }>>;
+            set: {
+                <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
+                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
+                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
+                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerProfile;
+            };
+            toJSON: {
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): Omit<{
+                    [x: string]: any;
+                }, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): {
+                    [x: string]: any;
+                };
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    flattenObjectIds: true;
+                }): {
+                    [x: string]: any;
+                    [x: number]: any;
+                    [x: symbol]: any;
+                };
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                }): Omit<any, "__v">;
+                (options?: import("mongoose").ToObjectOptions & {
+                    flattenMaps?: true;
+                    flattenObjectIds?: false;
+                }): import("mongoose").FlattenMaps<any>;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: false;
+                }): import("mongoose").FlattenMaps<any>;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: true;
+                }): {
+                    [x: string]: any;
+                };
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                    flattenObjectIds: true;
+                }): any;
+                <T = any>(options?: import("mongoose").ToObjectOptions & {
+                    flattenMaps?: true;
+                    flattenObjectIds?: false;
+                }): import("mongoose").FlattenMaps<T>;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: false;
+                }): import("mongoose").FlattenMaps<T>;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: true;
+                }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                }): T;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                    flattenObjectIds: true;
+                }): import("mongoose").ObjectIdToString<T>;
+            };
+            toObject: {
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    flattenObjectIds: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: true;
+                }): any;
+                (options?: import("mongoose").ToObjectOptions): any;
+                <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
+                    __v: number;
+                };
+            };
+            unmarkModified: {
+                <T extends string | number | symbol>(path: T): void;
+                (path: string): void;
+            };
+            updateOne: (update?: import("mongoose").UpdateWithAggregationPipeline | import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerProfile> | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerProfile, {}, unknown, "find", Record<string, never>>;
+            validate: {
+                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
+                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
+                (options: {
+                    pathsToSkip?: import("mongoose").pathsToSkip;
+                }): Promise<void>;
+            };
+            validateSync: {
+                (options: {
+                    pathsToSkip?: import("mongoose").pathsToSkip;
+                    [k: string]: any;
+                }): import("mongoose").Error.ValidationError | null;
+                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+            };
+            __v: number;
+        } | null;
+        preferences: {
+            _id: string;
+            customerId: string;
+            language: string;
+            currency: string;
+            timezone: string;
+            emailNotifications: boolean;
+            smsNotifications: boolean;
+            pushNotifications: boolean;
+            marketingEmails: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomerPreferences, keyof Paths> & Paths;
+            $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomerPreferences;
+            $clone: () => import("../schemas/CustomerSchema").ICustomerPreferences;
+            $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
+            $getAllSubdocs: () => import("mongoose").Document[];
+            $ignore: (path: string) => void;
+            $isDefault: (path?: string) => boolean;
+            $isDeleted: (val?: boolean) => boolean;
+            $getPopulatedDocs: () => import("mongoose").Document[];
+            $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomerPreferences;
+            $isEmpty: (path: string) => boolean;
+            $isValid: (path: string) => boolean;
+            $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
+            $markValid: (path: string) => void;
+            $model: {
+                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                    _id: import("mongoose").Types.ObjectId;
+                } & {
+                    __v: number;
+                }, any>>(name: string): ModelType;
+                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+            };
+            $op: "save" | "validate" | "remove" | null;
+            $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomerPreferences;
+            $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
+            $set: {
+                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
+                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
+                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerPreferences;
+            };
+            $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
+            baseModelName?: string;
+            collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
+            db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
+            deleteOne: (options?: import("mongoose").QueryOptions) => any;
+            depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerPreferences, Paths>;
+            directModifiedPaths: () => Array<string>;
+            equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
+            errors?: import("mongoose").Error.ValidationError;
+            get: {
+                <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
+                (path: string, type?: any, options?: any): any;
+            };
+            getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerPreferences>;
+            id: any;
+            increment: () => import("../schemas/CustomerSchema").ICustomerPreferences;
+            init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerPreferences;
+            invalidate: {
+                <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+                (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+            };
+            isDirectModified: {
+                <T extends string | number | symbol>(path: T | T[]): boolean;
+                (path: string | Array<string>): boolean;
+            };
+            isDirectSelected: {
+                <T extends string | number | symbol>(path: T): boolean;
+                (path: string): boolean;
+            };
+            isInit: {
+                <T extends string | number | symbol>(path: T): boolean;
+                (path: string): boolean;
+            };
+            isModified: {
+                <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
+                    ignoreAtomics?: boolean;
+                } | null): boolean;
+                (path?: string | Array<string>, options?: {
+                    ignoreAtomics?: boolean;
+                } | null): boolean;
+            };
+            isNew: boolean;
+            isSelected: {
+                <T extends string | number | symbol>(path: T): boolean;
+                (path: string): boolean;
+            };
+            markModified: {
+                <T extends string | number | symbol>(path: T, scope?: any): void;
+                (path: string, scope?: any): void;
+            };
+            model: {
+                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                    _id: import("mongoose").Types.ObjectId;
+                } & {
+                    __v: number;
+                }, any>>(name: string): ModelType;
+                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+            };
+            modifiedPaths: (options?: {
+                includeChildren?: boolean;
+            }) => Array<string>;
+            overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerPreferences;
+            $parent: () => import("mongoose").Document | undefined;
+            populate: {
+                <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerPreferences, Paths>>;
+                <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerPreferences, Paths>>;
+            };
+            populated: (path: string) => any;
+            replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerPreferences, {}, unknown, "find", Record<string, never>>;
+            save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomerPreferences>;
+            schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
+                [x: number]: unknown;
+                [x: symbol]: unknown;
+                [x: string]: unknown;
+            }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
+                [x: number]: unknown;
+                [x: symbol]: unknown;
+                [x: string]: unknown;
+            }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
+                [x: number]: unknown;
+                [x: symbol]: unknown;
+                [x: string]: unknown;
+            }> & Required<{
+                _id: unknown;
+            }> & {
+                __v: number;
+            }>>;
+            set: {
+                <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
+                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
+                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
+                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerPreferences;
+            };
+            toJSON: {
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): Omit<{
+                    [x: string]: any;
+                }, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): {
+                    [x: string]: any;
+                };
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    flattenObjectIds: true;
+                }): {
+                    [x: string]: any;
+                    [x: number]: any;
+                    [x: symbol]: any;
+                };
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                }): Omit<any, "__v">;
+                (options?: import("mongoose").ToObjectOptions & {
+                    flattenMaps?: true;
+                    flattenObjectIds?: false;
+                }): import("mongoose").FlattenMaps<any>;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: false;
+                }): import("mongoose").FlattenMaps<any>;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: true;
+                }): {
+                    [x: string]: any;
+                };
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                    flattenObjectIds: true;
+                }): any;
+                <T = any>(options?: import("mongoose").ToObjectOptions & {
+                    flattenMaps?: true;
+                    flattenObjectIds?: false;
+                }): import("mongoose").FlattenMaps<T>;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: false;
+                }): import("mongoose").FlattenMaps<T>;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: true;
+                }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                }): T;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                    flattenObjectIds: true;
+                }): import("mongoose").ObjectIdToString<T>;
+            };
+            toObject: {
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    flattenObjectIds: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: true;
+                }): any;
+                (options?: import("mongoose").ToObjectOptions): any;
+                <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
+                    __v: number;
+                };
+            };
+            unmarkModified: {
+                <T extends string | number | symbol>(path: T): void;
+                (path: string): void;
+            };
+            updateOne: (update?: import("mongoose").UpdateWithAggregationPipeline | import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerPreferences> | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerPreferences, {}, unknown, "find", Record<string, never>>;
+            validate: {
+                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
+                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
+                (options: {
+                    pathsToSkip?: import("mongoose").pathsToSkip;
+                }): Promise<void>;
+            };
+            validateSync: {
+                (options: {
+                    pathsToSkip?: import("mongoose").pathsToSkip;
+                    [k: string]: any;
+                }): import("mongoose").Error.ValidationError | null;
+                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+            };
+            __v: number;
+        } | null;
+        addresses: {
+            _id: string;
+            customerId: string;
+            type: import("../schemas/CustomerSchema").AddressType;
+            addressLine1: string;
+            addressLine2?: string;
+            city: string;
+            state: string;
+            postalCode: string;
+            country: string;
+            isDefault: boolean;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomerAddress, keyof Paths> & Paths;
+            $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomerAddress;
+            $clone: () => import("../schemas/CustomerSchema").ICustomerAddress;
+            $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
+            $getAllSubdocs: () => import("mongoose").Document[];
+            $ignore: (path: string) => void;
+            $isDefault: (path?: string) => boolean;
+            $isDeleted: (val?: boolean) => boolean;
+            $getPopulatedDocs: () => import("mongoose").Document[];
+            $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomerAddress;
+            $isEmpty: (path: string) => boolean;
+            $isValid: (path: string) => boolean;
+            $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
+            $markValid: (path: string) => void;
+            $model: {
+                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                    _id: import("mongoose").Types.ObjectId;
+                } & {
+                    __v: number;
+                }, any>>(name: string): ModelType;
+                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+            };
+            $op: "save" | "validate" | "remove" | null;
+            $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomerAddress;
+            $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
+            $set: {
+                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
+                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
+                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerAddress;
+            };
+            $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
+            baseModelName?: string;
+            collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
+            db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
+            deleteOne: (options?: import("mongoose").QueryOptions) => any;
+            depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>;
+            directModifiedPaths: () => Array<string>;
+            equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
+            errors?: import("mongoose").Error.ValidationError;
+            get: {
+                <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
+                (path: string, type?: any, options?: any): any;
+            };
+            getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerAddress>;
+            id: any;
+            increment: () => import("../schemas/CustomerSchema").ICustomerAddress;
+            init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerAddress;
+            invalidate: {
+                <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+                (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+            };
+            isDirectModified: {
+                <T extends string | number | symbol>(path: T | T[]): boolean;
+                (path: string | Array<string>): boolean;
+            };
+            isDirectSelected: {
+                <T extends string | number | symbol>(path: T): boolean;
+                (path: string): boolean;
+            };
+            isInit: {
+                <T extends string | number | symbol>(path: T): boolean;
+                (path: string): boolean;
+            };
+            isModified: {
+                <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
+                    ignoreAtomics?: boolean;
+                } | null): boolean;
+                (path?: string | Array<string>, options?: {
+                    ignoreAtomics?: boolean;
+                } | null): boolean;
+            };
+            isNew: boolean;
+            isSelected: {
+                <T extends string | number | symbol>(path: T): boolean;
+                (path: string): boolean;
+            };
+            markModified: {
+                <T extends string | number | symbol>(path: T, scope?: any): void;
+                (path: string, scope?: any): void;
+            };
+            model: {
+                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                    _id: import("mongoose").Types.ObjectId;
+                } & {
+                    __v: number;
+                }, any>>(name: string): ModelType;
+                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+            };
+            modifiedPaths: (options?: {
+                includeChildren?: boolean;
+            }) => Array<string>;
+            overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerAddress;
+            $parent: () => import("mongoose").Document | undefined;
+            populate: {
+                <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>>;
+                <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>>;
+            };
+            populated: (path: string) => any;
+            replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerAddress, {}, unknown, "find", Record<string, never>>;
+            save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomerAddress>;
+            schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
+                [x: number]: unknown;
+                [x: symbol]: unknown;
+                [x: string]: unknown;
+            }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
+                [x: number]: unknown;
+                [x: symbol]: unknown;
+                [x: string]: unknown;
+            }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
+                [x: number]: unknown;
+                [x: symbol]: unknown;
+                [x: string]: unknown;
+            }> & Required<{
+                _id: unknown;
+            }> & {
+                __v: number;
+            }>>;
+            set: {
+                <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
+                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
+                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
+                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerAddress;
+            };
+            toJSON: {
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): Omit<{
+                    [x: string]: any;
+                }, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): {
+                    [x: string]: any;
+                };
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    flattenObjectIds: true;
+                }): {
+                    [x: string]: any;
+                    [x: number]: any;
+                    [x: symbol]: any;
+                };
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                }): Omit<any, "__v">;
+                (options?: import("mongoose").ToObjectOptions & {
+                    flattenMaps?: true;
+                    flattenObjectIds?: false;
+                }): import("mongoose").FlattenMaps<any>;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: false;
+                }): import("mongoose").FlattenMaps<any>;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: true;
+                }): {
+                    [x: string]: any;
+                };
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                    flattenObjectIds: true;
+                }): any;
+                <T = any>(options?: import("mongoose").ToObjectOptions & {
+                    flattenMaps?: true;
+                    flattenObjectIds?: false;
+                }): import("mongoose").FlattenMaps<T>;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: false;
+                }): import("mongoose").FlattenMaps<T>;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: true;
+                }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                }): T;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                    flattenObjectIds: true;
+                }): import("mongoose").ObjectIdToString<T>;
+            };
+            toObject: {
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    flattenObjectIds: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: true;
+                }): any;
+                (options?: import("mongoose").ToObjectOptions): any;
+                <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
+                    __v: number;
+                };
+            };
+            unmarkModified: {
+                <T extends string | number | symbol>(path: T): void;
+                (path: string): void;
+            };
+            updateOne: (update?: import("mongoose").UpdateWithAggregationPipeline | import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerAddress> | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerAddress, {}, unknown, "find", Record<string, never>>;
+            validate: {
+                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
+                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
+                (options: {
+                    pathsToSkip?: import("mongoose").pathsToSkip;
+                }): Promise<void>;
+            };
+            validateSync: {
+                (options: {
+                    pathsToSkip?: import("mongoose").pathsToSkip;
+                    [k: string]: any;
+                }): import("mongoose").Error.ValidationError | null;
+                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+            };
+            __v: number;
+        }[];
+        _id: string;
+        email: string;
+        phone?: string;
+        firstName: string;
+        lastName: string;
+        dateOfBirth?: Date;
+        gender?: import("../schemas/CustomerSchema").Gender;
+        isVerified: boolean;
+        isActive: boolean;
+        lastLoginAt?: Date;
+        createdAt: Date;
+        updatedAt: Date;
+        $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomer, keyof Paths> & Paths;
+        $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomer;
+        $clone: () => import("../schemas/CustomerSchema").ICustomer;
+        $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
+        $getAllSubdocs: () => import("mongoose").Document[];
+        $ignore: (path: string) => void;
+        $isDefault: (path?: string) => boolean;
+        $isDeleted: (val?: boolean) => boolean;
+        $getPopulatedDocs: () => import("mongoose").Document[];
+        $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomer;
+        $isEmpty: (path: string) => boolean;
+        $isValid: (path: string) => boolean;
+        $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
+        $markValid: (path: string) => void;
+        $model: {
+            <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                _id: import("mongoose").Types.ObjectId;
+            } & {
+                __v: number;
+            }, any>>(name: string): ModelType;
+            <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+        };
+        $op: "save" | "validate" | "remove" | null;
+        $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomer;
+        $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
+        $set: {
+            (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
+            (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
+            (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomer;
+        };
+        $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
+        baseModelName?: string;
+        collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
+        db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
+        deleteOne: (options?: import("mongoose").QueryOptions) => any;
+        depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomer, Paths>;
+        directModifiedPaths: () => Array<string>;
+        equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
+        errors?: import("mongoose").Error.ValidationError;
+        get: {
+            <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
+            (path: string, type?: any, options?: any): any;
+        };
+        getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomer>;
+        id: any;
+        increment: () => import("../schemas/CustomerSchema").ICustomer;
+        init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomer;
+        invalidate: {
+            <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+            (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+        };
+        isDirectModified: {
+            <T extends string | number | symbol>(path: T | T[]): boolean;
+            (path: string | Array<string>): boolean;
+        };
+        isDirectSelected: {
+            <T extends string | number | symbol>(path: T): boolean;
+            (path: string): boolean;
+        };
+        isInit: {
+            <T extends string | number | symbol>(path: T): boolean;
+            (path: string): boolean;
+        };
+        isModified: {
+            <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
+                ignoreAtomics?: boolean;
+            } | null): boolean;
+            (path?: string | Array<string>, options?: {
+                ignoreAtomics?: boolean;
+            } | null): boolean;
+        };
+        isNew: boolean;
+        isSelected: {
+            <T extends string | number | symbol>(path: T): boolean;
+            (path: string): boolean;
+        };
+        markModified: {
+            <T extends string | number | symbol>(path: T, scope?: any): void;
+            (path: string, scope?: any): void;
+        };
+        model: {
+            <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                _id: import("mongoose").Types.ObjectId;
+            } & {
+                __v: number;
+            }, any>>(name: string): ModelType;
+            <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+        };
+        modifiedPaths: (options?: {
+            includeChildren?: boolean;
+        }) => Array<string>;
+        overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomer;
+        $parent: () => import("mongoose").Document | undefined;
+        populate: {
+            <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomer, Paths>>;
+            <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomer, Paths>>;
+        };
+        populated: (path: string) => any;
+        replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomer, {}, unknown, "find", Record<string, never>>;
+        save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomer>;
+        schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
+            [x: number]: unknown;
+            [x: symbol]: unknown;
+            [x: string]: unknown;
+        }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
+            [x: number]: unknown;
+            [x: symbol]: unknown;
+            [x: string]: unknown;
+        }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
+            [x: number]: unknown;
+            [x: symbol]: unknown;
+            [x: string]: unknown;
+        }> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        }>>;
+        set: {
+            <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
+            (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
+            (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
+            (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomer;
+        };
+        toJSON: {
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+                virtuals: true;
+                flattenObjectIds: true;
+            }): Omit<{
+                [x: string]: any;
+            }, "__v">;
+            (options: import("mongoose").ToObjectOptions & {
+                virtuals: true;
+                flattenObjectIds: true;
+            }): {
+                [x: string]: any;
+            };
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+                virtuals: true;
+            }): Omit<any, "__v">;
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+                flattenObjectIds: true;
+            }): {
+                [x: string]: any;
+                [x: number]: any;
+                [x: symbol]: any;
+            };
+            (options: import("mongoose").ToObjectOptions & {
+                virtuals: true;
+            }): any;
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+            }): Omit<any, "__v">;
+            (options?: import("mongoose").ToObjectOptions & {
+                flattenMaps?: true;
+                flattenObjectIds?: false;
+            }): import("mongoose").FlattenMaps<any>;
+            (options: import("mongoose").ToObjectOptions & {
+                flattenObjectIds: false;
+            }): import("mongoose").FlattenMaps<any>;
+            (options: import("mongoose").ToObjectOptions & {
+                flattenObjectIds: true;
+            }): {
+                [x: string]: any;
+            };
+            (options: import("mongoose").ToObjectOptions & {
+                flattenMaps: false;
+            }): any;
+            (options: import("mongoose").ToObjectOptions & {
+                flattenMaps: false;
+                flattenObjectIds: true;
+            }): any;
+            <T = any>(options?: import("mongoose").ToObjectOptions & {
+                flattenMaps?: true;
+                flattenObjectIds?: false;
+            }): import("mongoose").FlattenMaps<T>;
+            <T = any>(options: import("mongoose").ToObjectOptions & {
+                flattenObjectIds: false;
+            }): import("mongoose").FlattenMaps<T>;
+            <T = any>(options: import("mongoose").ToObjectOptions & {
+                flattenObjectIds: true;
+            }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
+            <T = any>(options: import("mongoose").ToObjectOptions & {
+                flattenMaps: false;
+            }): T;
+            <T = any>(options: import("mongoose").ToObjectOptions & {
+                flattenMaps: false;
+                flattenObjectIds: true;
+            }): import("mongoose").ObjectIdToString<T>;
+        };
+        toObject: {
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+                virtuals: true;
+                flattenObjectIds: true;
+            }): Omit<any, "__v">;
+            (options: import("mongoose").ToObjectOptions & {
+                virtuals: true;
+                flattenObjectIds: true;
+            }): any;
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+                flattenObjectIds: true;
+            }): Omit<any, "__v">;
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+                virtuals: true;
+            }): Omit<any, "__v">;
+            (options: import("mongoose").ToObjectOptions & {
+                virtuals: true;
+            }): any;
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+            }): Omit<any, "__v">;
+            (options: import("mongoose").ToObjectOptions & {
+                flattenObjectIds: true;
+            }): any;
+            (options?: import("mongoose").ToObjectOptions): any;
+            <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
+                __v: number;
+            };
+        };
+        unmarkModified: {
+            <T extends string | number | symbol>(path: T): void;
+            (path: string): void;
+        };
+        updateOne: (update?: import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomer> | import("mongoose").UpdateWithAggregationPipeline | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomer, {}, unknown, "find", Record<string, never>>;
+        validate: {
+            <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
+            (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
+            (options: {
+                pathsToSkip?: import("mongoose").pathsToSkip;
+            }): Promise<void>;
+        };
+        validateSync: {
+            (options: {
+                pathsToSkip?: import("mongoose").pathsToSkip;
+                [k: string]: any;
+            }): import("mongoose").Error.ValidationError | null;
+            <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+            (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+        };
+        __v: number;
+    }>;
+    deleteCustomer(customerId: string, requestId?: string): Promise<boolean>;
+    searchCustomers(filters: CustomerSearchFilters, pagination: CustomerPaginationOptions): Promise<{
+        customers: {
+            profile: {
+                _id: string;
+                customerId: string;
+                avatar?: string;
+                bio?: string;
+                preferences?: import("mongoose").FlattenMaps<Record<string, any>>;
+                emergencyContact?: string;
+                dietaryRestrictions?: string;
+                specialRequests?: string;
+                createdAt: Date;
+                updatedAt: Date;
+                $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomerProfile, keyof Paths> & Paths;
+                $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomerProfile;
+                $clone: () => import("../schemas/CustomerSchema").ICustomerProfile;
+                $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
+                $getAllSubdocs: () => import("mongoose").Document[];
+                $ignore: (path: string) => void;
+                $isDefault: (path?: string) => boolean;
+                $isDeleted: (val?: boolean) => boolean;
+                $getPopulatedDocs: () => import("mongoose").Document[];
+                $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomerProfile;
+                $isEmpty: (path: string) => boolean;
+                $isValid: (path: string) => boolean;
+                $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
+                $markValid: (path: string) => void;
+                $model: {
+                    <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                        _id: import("mongoose").Types.ObjectId;
+                    } & {
+                        __v: number;
+                    }, any>>(name: string): ModelType;
+                    <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+                };
+                $op: "save" | "validate" | "remove" | null;
+                $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomerProfile;
+                $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
+                $set: {
+                    (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
+                    (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
+                    (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerProfile;
+                };
+                $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
+                baseModelName?: string;
+                collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
+                db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
+                deleteOne: (options?: import("mongoose").QueryOptions) => any;
+                depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerProfile, Paths>;
+                directModifiedPaths: () => Array<string>;
+                equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
+                errors?: import("mongoose").Error.ValidationError;
+                get: {
+                    <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
+                    (path: string, type?: any, options?: any): any;
+                };
+                getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerProfile>;
+                id: any;
+                increment: () => import("../schemas/CustomerSchema").ICustomerProfile;
+                init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerProfile;
+                invalidate: {
+                    <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+                    (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+                };
+                isDirectModified: {
+                    <T extends string | number | symbol>(path: T | T[]): boolean;
+                    (path: string | Array<string>): boolean;
+                };
+                isDirectSelected: {
+                    <T extends string | number | symbol>(path: T): boolean;
+                    (path: string): boolean;
+                };
+                isInit: {
+                    <T extends string | number | symbol>(path: T): boolean;
+                    (path: string): boolean;
+                };
+                isModified: {
+                    <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
+                        ignoreAtomics?: boolean;
+                    } | null): boolean;
+                    (path?: string | Array<string>, options?: {
+                        ignoreAtomics?: boolean;
+                    } | null): boolean;
+                };
+                isNew: boolean;
+                isSelected: {
+                    <T extends string | number | symbol>(path: T): boolean;
+                    (path: string): boolean;
+                };
+                markModified: {
+                    <T extends string | number | symbol>(path: T, scope?: any): void;
+                    (path: string, scope?: any): void;
+                };
+                model: {
+                    <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                        _id: import("mongoose").Types.ObjectId;
+                    } & {
+                        __v: number;
+                    }, any>>(name: string): ModelType;
+                    <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+                };
+                modifiedPaths: (options?: {
+                    includeChildren?: boolean;
+                }) => Array<string>;
+                overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerProfile;
+                $parent: () => import("mongoose").Document | undefined;
+                populate: {
+                    <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerProfile, Paths>>;
+                    <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerProfile, Paths>>;
+                };
+                populated: (path: string) => any;
+                replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerProfile, {}, unknown, "find", Record<string, never>>;
+                save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomerProfile>;
+                schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
+                    [x: number]: unknown;
+                    [x: symbol]: unknown;
+                    [x: string]: unknown;
+                }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
+                    [x: number]: unknown;
+                    [x: symbol]: unknown;
+                    [x: string]: unknown;
+                }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
+                    [x: number]: unknown;
+                    [x: symbol]: unknown;
+                    [x: string]: unknown;
+                }> & Required<{
+                    _id: unknown;
+                }> & {
+                    __v: number;
+                }>>;
+                set: {
+                    <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
+                    (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
+                    (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerProfile;
+                    (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerProfile;
+                };
+                toJSON: {
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        virtuals: true;
+                        flattenObjectIds: true;
+                    }): Omit<{
+                        [x: string]: any;
+                    }, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        virtuals: true;
+                        flattenObjectIds: true;
+                    }): {
+                        [x: string]: any;
+                    };
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        virtuals: true;
+                    }): Omit<any, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        flattenObjectIds: true;
+                    }): {
+                        [x: string]: any;
+                        [x: number]: any;
+                        [x: symbol]: any;
+                    };
+                    (options: import("mongoose").ToObjectOptions & {
+                        virtuals: true;
+                    }): any;
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                    }): Omit<any, "__v">;
+                    (options?: import("mongoose").ToObjectOptions & {
+                        flattenMaps?: true;
+                        flattenObjectIds?: false;
+                    }): import("mongoose").FlattenMaps<any>;
+                    (options: import("mongoose").ToObjectOptions & {
+                        flattenObjectIds: false;
+                    }): import("mongoose").FlattenMaps<any>;
+                    (options: import("mongoose").ToObjectOptions & {
+                        flattenObjectIds: true;
+                    }): {
+                        [x: string]: any;
+                    };
+                    (options: import("mongoose").ToObjectOptions & {
+                        flattenMaps: false;
+                    }): any;
+                    (options: import("mongoose").ToObjectOptions & {
+                        flattenMaps: false;
+                        flattenObjectIds: true;
+                    }): any;
+                    <T = any>(options?: import("mongoose").ToObjectOptions & {
+                        flattenMaps?: true;
+                        flattenObjectIds?: false;
+                    }): import("mongoose").FlattenMaps<T>;
+                    <T = any>(options: import("mongoose").ToObjectOptions & {
+                        flattenObjectIds: false;
+                    }): import("mongoose").FlattenMaps<T>;
+                    <T = any>(options: import("mongoose").ToObjectOptions & {
+                        flattenObjectIds: true;
+                    }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
+                    <T = any>(options: import("mongoose").ToObjectOptions & {
+                        flattenMaps: false;
+                    }): T;
+                    <T = any>(options: import("mongoose").ToObjectOptions & {
+                        flattenMaps: false;
+                        flattenObjectIds: true;
+                    }): import("mongoose").ObjectIdToString<T>;
+                };
+                toObject: {
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        virtuals: true;
+                        flattenObjectIds: true;
+                    }): Omit<any, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        virtuals: true;
+                        flattenObjectIds: true;
+                    }): any;
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        flattenObjectIds: true;
+                    }): Omit<any, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        virtuals: true;
+                    }): Omit<any, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        virtuals: true;
+                    }): any;
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                    }): Omit<any, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        flattenObjectIds: true;
+                    }): any;
+                    (options?: import("mongoose").ToObjectOptions): any;
+                    <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
+                        __v: number;
+                    };
+                };
+                unmarkModified: {
+                    <T extends string | number | symbol>(path: T): void;
+                    (path: string): void;
+                };
+                updateOne: (update?: import("mongoose").UpdateWithAggregationPipeline | import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerProfile> | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerProfile, {}, unknown, "find", Record<string, never>>;
+                validate: {
+                    <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
+                    (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
+                    (options: {
+                        pathsToSkip?: import("mongoose").pathsToSkip;
+                    }): Promise<void>;
+                };
+                validateSync: {
+                    (options: {
+                        pathsToSkip?: import("mongoose").pathsToSkip;
+                        [k: string]: any;
+                    }): import("mongoose").Error.ValidationError | null;
+                    <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+                    (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+                };
+                __v: number;
+            } | null;
+            preferences: {
+                _id: string;
+                customerId: string;
+                language: string;
+                currency: string;
+                timezone: string;
+                emailNotifications: boolean;
+                smsNotifications: boolean;
+                pushNotifications: boolean;
+                marketingEmails: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+                $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomerPreferences, keyof Paths> & Paths;
+                $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomerPreferences;
+                $clone: () => import("../schemas/CustomerSchema").ICustomerPreferences;
+                $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
+                $getAllSubdocs: () => import("mongoose").Document[];
+                $ignore: (path: string) => void;
+                $isDefault: (path?: string) => boolean;
+                $isDeleted: (val?: boolean) => boolean;
+                $getPopulatedDocs: () => import("mongoose").Document[];
+                $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomerPreferences;
+                $isEmpty: (path: string) => boolean;
+                $isValid: (path: string) => boolean;
+                $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
+                $markValid: (path: string) => void;
+                $model: {
+                    <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                        _id: import("mongoose").Types.ObjectId;
+                    } & {
+                        __v: number;
+                    }, any>>(name: string): ModelType;
+                    <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+                };
+                $op: "save" | "validate" | "remove" | null;
+                $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomerPreferences;
+                $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
+                $set: {
+                    (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
+                    (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
+                    (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerPreferences;
+                };
+                $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
+                baseModelName?: string;
+                collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
+                db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
+                deleteOne: (options?: import("mongoose").QueryOptions) => any;
+                depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerPreferences, Paths>;
+                directModifiedPaths: () => Array<string>;
+                equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
+                errors?: import("mongoose").Error.ValidationError;
+                get: {
+                    <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
+                    (path: string, type?: any, options?: any): any;
+                };
+                getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerPreferences>;
+                id: any;
+                increment: () => import("../schemas/CustomerSchema").ICustomerPreferences;
+                init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerPreferences;
+                invalidate: {
+                    <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+                    (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+                };
+                isDirectModified: {
+                    <T extends string | number | symbol>(path: T | T[]): boolean;
+                    (path: string | Array<string>): boolean;
+                };
+                isDirectSelected: {
+                    <T extends string | number | symbol>(path: T): boolean;
+                    (path: string): boolean;
+                };
+                isInit: {
+                    <T extends string | number | symbol>(path: T): boolean;
+                    (path: string): boolean;
+                };
+                isModified: {
+                    <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
+                        ignoreAtomics?: boolean;
+                    } | null): boolean;
+                    (path?: string | Array<string>, options?: {
+                        ignoreAtomics?: boolean;
+                    } | null): boolean;
+                };
+                isNew: boolean;
+                isSelected: {
+                    <T extends string | number | symbol>(path: T): boolean;
+                    (path: string): boolean;
+                };
+                markModified: {
+                    <T extends string | number | symbol>(path: T, scope?: any): void;
+                    (path: string, scope?: any): void;
+                };
+                model: {
+                    <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                        _id: import("mongoose").Types.ObjectId;
+                    } & {
+                        __v: number;
+                    }, any>>(name: string): ModelType;
+                    <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+                };
+                modifiedPaths: (options?: {
+                    includeChildren?: boolean;
+                }) => Array<string>;
+                overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerPreferences;
+                $parent: () => import("mongoose").Document | undefined;
+                populate: {
+                    <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerPreferences, Paths>>;
+                    <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerPreferences, Paths>>;
+                };
+                populated: (path: string) => any;
+                replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerPreferences, {}, unknown, "find", Record<string, never>>;
+                save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomerPreferences>;
+                schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
+                    [x: number]: unknown;
+                    [x: symbol]: unknown;
+                    [x: string]: unknown;
+                }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
+                    [x: number]: unknown;
+                    [x: symbol]: unknown;
+                    [x: string]: unknown;
+                }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
+                    [x: number]: unknown;
+                    [x: symbol]: unknown;
+                    [x: string]: unknown;
+                }> & Required<{
+                    _id: unknown;
+                }> & {
+                    __v: number;
+                }>>;
+                set: {
+                    <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
+                    (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
+                    (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerPreferences;
+                    (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerPreferences;
+                };
+                toJSON: {
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        virtuals: true;
+                        flattenObjectIds: true;
+                    }): Omit<{
+                        [x: string]: any;
+                    }, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        virtuals: true;
+                        flattenObjectIds: true;
+                    }): {
+                        [x: string]: any;
+                    };
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        virtuals: true;
+                    }): Omit<any, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        flattenObjectIds: true;
+                    }): {
+                        [x: string]: any;
+                        [x: number]: any;
+                        [x: symbol]: any;
+                    };
+                    (options: import("mongoose").ToObjectOptions & {
+                        virtuals: true;
+                    }): any;
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                    }): Omit<any, "__v">;
+                    (options?: import("mongoose").ToObjectOptions & {
+                        flattenMaps?: true;
+                        flattenObjectIds?: false;
+                    }): import("mongoose").FlattenMaps<any>;
+                    (options: import("mongoose").ToObjectOptions & {
+                        flattenObjectIds: false;
+                    }): import("mongoose").FlattenMaps<any>;
+                    (options: import("mongoose").ToObjectOptions & {
+                        flattenObjectIds: true;
+                    }): {
+                        [x: string]: any;
+                    };
+                    (options: import("mongoose").ToObjectOptions & {
+                        flattenMaps: false;
+                    }): any;
+                    (options: import("mongoose").ToObjectOptions & {
+                        flattenMaps: false;
+                        flattenObjectIds: true;
+                    }): any;
+                    <T = any>(options?: import("mongoose").ToObjectOptions & {
+                        flattenMaps?: true;
+                        flattenObjectIds?: false;
+                    }): import("mongoose").FlattenMaps<T>;
+                    <T = any>(options: import("mongoose").ToObjectOptions & {
+                        flattenObjectIds: false;
+                    }): import("mongoose").FlattenMaps<T>;
+                    <T = any>(options: import("mongoose").ToObjectOptions & {
+                        flattenObjectIds: true;
+                    }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
+                    <T = any>(options: import("mongoose").ToObjectOptions & {
+                        flattenMaps: false;
+                    }): T;
+                    <T = any>(options: import("mongoose").ToObjectOptions & {
+                        flattenMaps: false;
+                        flattenObjectIds: true;
+                    }): import("mongoose").ObjectIdToString<T>;
+                };
+                toObject: {
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        virtuals: true;
+                        flattenObjectIds: true;
+                    }): Omit<any, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        virtuals: true;
+                        flattenObjectIds: true;
+                    }): any;
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        flattenObjectIds: true;
+                    }): Omit<any, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        virtuals: true;
+                    }): Omit<any, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        virtuals: true;
+                    }): any;
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                    }): Omit<any, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        flattenObjectIds: true;
+                    }): any;
+                    (options?: import("mongoose").ToObjectOptions): any;
+                    <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
+                        __v: number;
+                    };
+                };
+                unmarkModified: {
+                    <T extends string | number | symbol>(path: T): void;
+                    (path: string): void;
+                };
+                updateOne: (update?: import("mongoose").UpdateWithAggregationPipeline | import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerPreferences> | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerPreferences, {}, unknown, "find", Record<string, never>>;
+                validate: {
+                    <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
+                    (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
+                    (options: {
+                        pathsToSkip?: import("mongoose").pathsToSkip;
+                    }): Promise<void>;
+                };
+                validateSync: {
+                    (options: {
+                        pathsToSkip?: import("mongoose").pathsToSkip;
+                        [k: string]: any;
+                    }): import("mongoose").Error.ValidationError | null;
+                    <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+                    (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+                };
+                __v: number;
+            } | null;
+            addresses: {
+                _id: string;
+                customerId: string;
+                type: import("../schemas/CustomerSchema").AddressType;
+                addressLine1: string;
+                addressLine2?: string;
+                city: string;
+                state: string;
+                postalCode: string;
+                country: string;
+                isDefault: boolean;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+                $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomerAddress, keyof Paths> & Paths;
+                $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomerAddress;
+                $clone: () => import("../schemas/CustomerSchema").ICustomerAddress;
+                $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
+                $getAllSubdocs: () => import("mongoose").Document[];
+                $ignore: (path: string) => void;
+                $isDefault: (path?: string) => boolean;
+                $isDeleted: (val?: boolean) => boolean;
+                $getPopulatedDocs: () => import("mongoose").Document[];
+                $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomerAddress;
+                $isEmpty: (path: string) => boolean;
+                $isValid: (path: string) => boolean;
+                $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
+                $markValid: (path: string) => void;
+                $model: {
+                    <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                        _id: import("mongoose").Types.ObjectId;
+                    } & {
+                        __v: number;
+                    }, any>>(name: string): ModelType;
+                    <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+                };
+                $op: "save" | "validate" | "remove" | null;
+                $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomerAddress;
+                $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
+                $set: {
+                    (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
+                    (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
+                    (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerAddress;
+                };
+                $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
+                baseModelName?: string;
+                collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
+                db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
+                deleteOne: (options?: import("mongoose").QueryOptions) => any;
+                depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>;
+                directModifiedPaths: () => Array<string>;
+                equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
+                errors?: import("mongoose").Error.ValidationError;
+                get: {
+                    <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
+                    (path: string, type?: any, options?: any): any;
+                };
+                getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerAddress>;
+                id: any;
+                increment: () => import("../schemas/CustomerSchema").ICustomerAddress;
+                init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerAddress;
+                invalidate: {
+                    <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+                    (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+                };
+                isDirectModified: {
+                    <T extends string | number | symbol>(path: T | T[]): boolean;
+                    (path: string | Array<string>): boolean;
+                };
+                isDirectSelected: {
+                    <T extends string | number | symbol>(path: T): boolean;
+                    (path: string): boolean;
+                };
+                isInit: {
+                    <T extends string | number | symbol>(path: T): boolean;
+                    (path: string): boolean;
+                };
+                isModified: {
+                    <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
+                        ignoreAtomics?: boolean;
+                    } | null): boolean;
+                    (path?: string | Array<string>, options?: {
+                        ignoreAtomics?: boolean;
+                    } | null): boolean;
+                };
+                isNew: boolean;
+                isSelected: {
+                    <T extends string | number | symbol>(path: T): boolean;
+                    (path: string): boolean;
+                };
+                markModified: {
+                    <T extends string | number | symbol>(path: T, scope?: any): void;
+                    (path: string, scope?: any): void;
+                };
+                model: {
+                    <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                        _id: import("mongoose").Types.ObjectId;
+                    } & {
+                        __v: number;
+                    }, any>>(name: string): ModelType;
+                    <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+                };
+                modifiedPaths: (options?: {
+                    includeChildren?: boolean;
+                }) => Array<string>;
+                overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerAddress;
+                $parent: () => import("mongoose").Document | undefined;
+                populate: {
+                    <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>>;
+                    <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>>;
+                };
+                populated: (path: string) => any;
+                replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerAddress, {}, unknown, "find", Record<string, never>>;
+                save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomerAddress>;
+                schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
+                    [x: number]: unknown;
+                    [x: symbol]: unknown;
+                    [x: string]: unknown;
+                }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
+                    [x: number]: unknown;
+                    [x: symbol]: unknown;
+                    [x: string]: unknown;
+                }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
+                    [x: number]: unknown;
+                    [x: symbol]: unknown;
+                    [x: string]: unknown;
+                }> & Required<{
+                    _id: unknown;
+                }> & {
+                    __v: number;
+                }>>;
+                set: {
+                    <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
+                    (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
+                    (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
+                    (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerAddress;
+                };
+                toJSON: {
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        virtuals: true;
+                        flattenObjectIds: true;
+                    }): Omit<{
+                        [x: string]: any;
+                    }, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        virtuals: true;
+                        flattenObjectIds: true;
+                    }): {
+                        [x: string]: any;
+                    };
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        virtuals: true;
+                    }): Omit<any, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        flattenObjectIds: true;
+                    }): {
+                        [x: string]: any;
+                        [x: number]: any;
+                        [x: symbol]: any;
+                    };
+                    (options: import("mongoose").ToObjectOptions & {
+                        virtuals: true;
+                    }): any;
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                    }): Omit<any, "__v">;
+                    (options?: import("mongoose").ToObjectOptions & {
+                        flattenMaps?: true;
+                        flattenObjectIds?: false;
+                    }): import("mongoose").FlattenMaps<any>;
+                    (options: import("mongoose").ToObjectOptions & {
+                        flattenObjectIds: false;
+                    }): import("mongoose").FlattenMaps<any>;
+                    (options: import("mongoose").ToObjectOptions & {
+                        flattenObjectIds: true;
+                    }): {
+                        [x: string]: any;
+                    };
+                    (options: import("mongoose").ToObjectOptions & {
+                        flattenMaps: false;
+                    }): any;
+                    (options: import("mongoose").ToObjectOptions & {
+                        flattenMaps: false;
+                        flattenObjectIds: true;
+                    }): any;
+                    <T = any>(options?: import("mongoose").ToObjectOptions & {
+                        flattenMaps?: true;
+                        flattenObjectIds?: false;
+                    }): import("mongoose").FlattenMaps<T>;
+                    <T = any>(options: import("mongoose").ToObjectOptions & {
+                        flattenObjectIds: false;
+                    }): import("mongoose").FlattenMaps<T>;
+                    <T = any>(options: import("mongoose").ToObjectOptions & {
+                        flattenObjectIds: true;
+                    }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
+                    <T = any>(options: import("mongoose").ToObjectOptions & {
+                        flattenMaps: false;
+                    }): T;
+                    <T = any>(options: import("mongoose").ToObjectOptions & {
+                        flattenMaps: false;
+                        flattenObjectIds: true;
+                    }): import("mongoose").ObjectIdToString<T>;
+                };
+                toObject: {
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        virtuals: true;
+                        flattenObjectIds: true;
+                    }): Omit<any, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        virtuals: true;
+                        flattenObjectIds: true;
+                    }): any;
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        flattenObjectIds: true;
+                    }): Omit<any, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                        virtuals: true;
+                    }): Omit<any, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        virtuals: true;
+                    }): any;
+                    (options: import("mongoose").ToObjectOptions & {
+                        versionKey: false;
+                    }): Omit<any, "__v">;
+                    (options: import("mongoose").ToObjectOptions & {
+                        flattenObjectIds: true;
+                    }): any;
+                    (options?: import("mongoose").ToObjectOptions): any;
+                    <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
+                        __v: number;
+                    };
+                };
+                unmarkModified: {
+                    <T extends string | number | symbol>(path: T): void;
+                    (path: string): void;
+                };
+                updateOne: (update?: import("mongoose").UpdateWithAggregationPipeline | import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerAddress> | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerAddress, {}, unknown, "find", Record<string, never>>;
+                validate: {
+                    <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
+                    (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
+                    (options: {
+                        pathsToSkip?: import("mongoose").pathsToSkip;
+                    }): Promise<void>;
+                };
+                validateSync: {
+                    (options: {
+                        pathsToSkip?: import("mongoose").pathsToSkip;
+                        [k: string]: any;
+                    }): import("mongoose").Error.ValidationError | null;
+                    <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+                    (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+                };
+                __v: number;
+            }[];
+            _id: string;
+            email: string;
+            phone?: string;
+            firstName: string;
+            lastName: string;
+            dateOfBirth?: Date;
+            gender?: import("../schemas/CustomerSchema").Gender;
+            isVerified: boolean;
+            isActive: boolean;
+            lastLoginAt?: Date;
+            createdAt: Date;
+            updatedAt: Date;
+            $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomer, keyof Paths> & Paths;
+            $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomer;
+            $clone: () => import("../schemas/CustomerSchema").ICustomer;
+            $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
+            $getAllSubdocs: () => import("mongoose").Document[];
+            $ignore: (path: string) => void;
+            $isDefault: (path?: string) => boolean;
+            $isDeleted: (val?: boolean) => boolean;
+            $getPopulatedDocs: () => import("mongoose").Document[];
+            $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomer;
+            $isEmpty: (path: string) => boolean;
+            $isValid: (path: string) => boolean;
+            $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
+            $markValid: (path: string) => void;
+            $model: {
+                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                    _id: import("mongoose").Types.ObjectId;
+                } & {
+                    __v: number;
+                }, any>>(name: string): ModelType;
+                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+            };
+            $op: "save" | "validate" | "remove" | null;
+            $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomer;
+            $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
+            $set: {
+                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
+                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
+                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomer;
+            };
+            $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
+            baseModelName?: string;
+            collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
+            db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
+            deleteOne: (options?: import("mongoose").QueryOptions) => any;
+            depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomer, Paths>;
+            directModifiedPaths: () => Array<string>;
+            equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
+            errors?: import("mongoose").Error.ValidationError;
+            get: {
+                <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
+                (path: string, type?: any, options?: any): any;
+            };
+            getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomer>;
+            id: any;
+            increment: () => import("../schemas/CustomerSchema").ICustomer;
+            init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomer;
+            invalidate: {
+                <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+                (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+            };
+            isDirectModified: {
+                <T extends string | number | symbol>(path: T | T[]): boolean;
+                (path: string | Array<string>): boolean;
+            };
+            isDirectSelected: {
+                <T extends string | number | symbol>(path: T): boolean;
+                (path: string): boolean;
+            };
+            isInit: {
+                <T extends string | number | symbol>(path: T): boolean;
+                (path: string): boolean;
+            };
+            isModified: {
+                <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
+                    ignoreAtomics?: boolean;
+                } | null): boolean;
+                (path?: string | Array<string>, options?: {
+                    ignoreAtomics?: boolean;
+                } | null): boolean;
+            };
+            isNew: boolean;
+            isSelected: {
+                <T extends string | number | symbol>(path: T): boolean;
+                (path: string): boolean;
+            };
+            markModified: {
+                <T extends string | number | symbol>(path: T, scope?: any): void;
+                (path: string, scope?: any): void;
+            };
+            model: {
+                <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                    _id: import("mongoose").Types.ObjectId;
+                } & {
+                    __v: number;
+                }, any>>(name: string): ModelType;
+                <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+            };
+            modifiedPaths: (options?: {
+                includeChildren?: boolean;
+            }) => Array<string>;
+            overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomer;
+            $parent: () => import("mongoose").Document | undefined;
+            populate: {
+                <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomer, Paths>>;
+                <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomer, Paths>>;
+            };
+            populated: (path: string) => any;
+            replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomer, {}, unknown, "find", Record<string, never>>;
+            save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomer>;
+            schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
+                [x: number]: unknown;
+                [x: symbol]: unknown;
+                [x: string]: unknown;
+            }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
+                [x: number]: unknown;
+                [x: symbol]: unknown;
+                [x: string]: unknown;
+            }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
+                [x: number]: unknown;
+                [x: symbol]: unknown;
+                [x: string]: unknown;
+            }> & Required<{
+                _id: unknown;
+            }> & {
+                __v: number;
+            }>>;
+            set: {
+                <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
+                (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
+                (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomer;
+                (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomer;
+            };
+            toJSON: {
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): Omit<{
+                    [x: string]: any;
+                }, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): {
+                    [x: string]: any;
+                };
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    flattenObjectIds: true;
+                }): {
+                    [x: string]: any;
+                    [x: number]: any;
+                    [x: symbol]: any;
+                };
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                }): Omit<any, "__v">;
+                (options?: import("mongoose").ToObjectOptions & {
+                    flattenMaps?: true;
+                    flattenObjectIds?: false;
+                }): import("mongoose").FlattenMaps<any>;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: false;
+                }): import("mongoose").FlattenMaps<any>;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: true;
+                }): {
+                    [x: string]: any;
+                };
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                    flattenObjectIds: true;
+                }): any;
+                <T = any>(options?: import("mongoose").ToObjectOptions & {
+                    flattenMaps?: true;
+                    flattenObjectIds?: false;
+                }): import("mongoose").FlattenMaps<T>;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: false;
+                }): import("mongoose").FlattenMaps<T>;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: true;
+                }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                }): T;
+                <T = any>(options: import("mongoose").ToObjectOptions & {
+                    flattenMaps: false;
+                    flattenObjectIds: true;
+                }): import("mongoose").ObjectIdToString<T>;
+            };
+            toObject: {
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                    flattenObjectIds: true;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    flattenObjectIds: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                    virtuals: true;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    virtuals: true;
+                }): any;
+                (options: import("mongoose").ToObjectOptions & {
+                    versionKey: false;
+                }): Omit<any, "__v">;
+                (options: import("mongoose").ToObjectOptions & {
+                    flattenObjectIds: true;
+                }): any;
+                (options?: import("mongoose").ToObjectOptions): any;
+                <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
+                    __v: number;
+                };
+            };
+            unmarkModified: {
+                <T extends string | number | symbol>(path: T): void;
+                (path: string): void;
+            };
+            updateOne: (update?: import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomer> | import("mongoose").UpdateWithAggregationPipeline | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomer, {}, unknown, "find", Record<string, never>>;
+            validate: {
+                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
+                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
+                (options: {
+                    pathsToSkip?: import("mongoose").pathsToSkip;
+                }): Promise<void>;
+            };
+            validateSync: {
+                (options: {
+                    pathsToSkip?: import("mongoose").pathsToSkip;
+                    [k: string]: any;
+                }): import("mongoose").Error.ValidationError | null;
+                <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+                (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+            };
+            __v: number;
+        }[];
+        pagination: {
+            page: number;
+            limit: number;
+            total: number;
+            pages: number;
+        };
+    }>;
+    getCustomerStats(): Promise<{
+        totalCustomers: number;
+        verifiedCustomers: number;
+        activeCustomers: number;
+        newCustomersThisMonth: number;
+        newCustomersThisWeek: number;
+        newCustomersToday: number;
+        verificationRate: number;
+    }>;
+    updateCustomerProfile(customerId: string, profileData: CustomerProfileData, requestId?: string): Promise<{
         _id: string;
         customerId: string;
         avatar?: string;
@@ -4944,7 +4931,7 @@ export declare class CustomerController {
         };
         __v: number;
     }>;
-    updateCustomerPreferencesGraphQL(customerId: string, input: any): Promise<{
+    updateCustomerPreferences(customerId: string, preferencesData: CustomerPreferencesData, requestId?: string): Promise<{
         _id: string;
         customerId: string;
         language: string;
@@ -5202,7 +5189,7 @@ export declare class CustomerController {
         };
         __v: number;
     }>;
-    addCustomerAddressGraphQL(customerId: string, input: any): Promise<{
+    addCustomerAddress(customerId: string, addressData: CustomerAddressData, requestId?: string): Promise<{
         _id: string;
         customerId: string;
         type: import("../schemas/CustomerSchema").AddressType;
@@ -5228,268 +5215,7 @@ export declare class CustomerController {
         schema: import("mongoose").Schema;
         __v: number;
     }>;
-    updateCustomerAddressGraphQL(addressId: string, input: any): Promise<{
-        _id: string;
-        customerId: string;
-        type: import("../schemas/CustomerSchema").AddressType;
-        addressLine1: string;
-        addressLine2?: string;
-        city: string;
-        state: string;
-        postalCode: string;
-        country: string;
-        isDefault: boolean;
-        isActive: boolean;
-        createdAt: Date;
-        updatedAt: Date;
-        $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomerAddress, keyof Paths> & Paths;
-        $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomerAddress;
-        $clone: () => import("../schemas/CustomerSchema").ICustomerAddress;
-        $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
-        $getAllSubdocs: () => import("mongoose").Document[];
-        $ignore: (path: string) => void;
-        $isDefault: (path?: string) => boolean;
-        $isDeleted: (val?: boolean) => boolean;
-        $getPopulatedDocs: () => import("mongoose").Document[];
-        $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomerAddress;
-        $isEmpty: (path: string) => boolean;
-        $isValid: (path: string) => boolean;
-        $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
-        $markValid: (path: string) => void;
-        $model: {
-            <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                _id: import("mongoose").Types.ObjectId;
-            } & {
-                __v: number;
-            }, any>>(name: string): ModelType;
-            <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-        };
-        $op: "save" | "validate" | "remove" | null;
-        $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomerAddress;
-        $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
-        $set: {
-            (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
-            (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
-            (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerAddress;
-        };
-        $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
-        baseModelName?: string;
-        collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
-        db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
-        deleteOne: (options?: import("mongoose").QueryOptions) => any;
-        depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>;
-        directModifiedPaths: () => Array<string>;
-        equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
-        errors?: import("mongoose").Error.ValidationError;
-        get: {
-            <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
-            (path: string, type?: any, options?: any): any;
-        };
-        getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerAddress>;
-        id: any;
-        increment: () => import("../schemas/CustomerSchema").ICustomerAddress;
-        init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerAddress;
-        invalidate: {
-            <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-            (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
-        };
-        isDirectModified: {
-            <T extends string | number | symbol>(path: T | T[]): boolean;
-            (path: string | Array<string>): boolean;
-        };
-        isDirectSelected: {
-            <T extends string | number | symbol>(path: T): boolean;
-            (path: string): boolean;
-        };
-        isInit: {
-            <T extends string | number | symbol>(path: T): boolean;
-            (path: string): boolean;
-        };
-        isModified: {
-            <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
-                ignoreAtomics?: boolean;
-            } | null): boolean;
-            (path?: string | Array<string>, options?: {
-                ignoreAtomics?: boolean;
-            } | null): boolean;
-        };
-        isNew: boolean;
-        isSelected: {
-            <T extends string | number | symbol>(path: T): boolean;
-            (path: string): boolean;
-        };
-        markModified: {
-            <T extends string | number | symbol>(path: T, scope?: any): void;
-            (path: string, scope?: any): void;
-        };
-        model: {
-            <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
-                _id: import("mongoose").Types.ObjectId;
-            } & {
-                __v: number;
-            }, any>>(name: string): ModelType;
-            <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
-        };
-        modifiedPaths: (options?: {
-            includeChildren?: boolean;
-        }) => Array<string>;
-        overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerAddress;
-        $parent: () => import("mongoose").Document | undefined;
-        populate: {
-            <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>>;
-            <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>>;
-        };
-        populated: (path: string) => any;
-        replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerAddress, {}, unknown, "find", Record<string, never>>;
-        save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomerAddress>;
-        schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
-            [x: number]: unknown;
-            [x: symbol]: unknown;
-            [x: string]: unknown;
-        }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
-            [x: number]: unknown;
-            [x: symbol]: unknown;
-            [x: string]: unknown;
-        }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
-            [x: number]: unknown;
-            [x: symbol]: unknown;
-            [x: string]: unknown;
-        }> & Required<{
-            _id: unknown;
-        }> & {
-            __v: number;
-        }>>;
-        set: {
-            <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
-            (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
-            (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
-            (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerAddress;
-        };
-        toJSON: {
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-                virtuals: true;
-                flattenObjectIds: true;
-            }): Omit<{
-                [x: string]: any;
-            }, "__v">;
-            (options: import("mongoose").ToObjectOptions & {
-                virtuals: true;
-                flattenObjectIds: true;
-            }): {
-                [x: string]: any;
-            };
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-                virtuals: true;
-            }): Omit<any, "__v">;
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-                flattenObjectIds: true;
-            }): {
-                [x: string]: any;
-                [x: number]: any;
-                [x: symbol]: any;
-            };
-            (options: import("mongoose").ToObjectOptions & {
-                virtuals: true;
-            }): any;
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-            }): Omit<any, "__v">;
-            (options?: import("mongoose").ToObjectOptions & {
-                flattenMaps?: true;
-                flattenObjectIds?: false;
-            }): import("mongoose").FlattenMaps<any>;
-            (options: import("mongoose").ToObjectOptions & {
-                flattenObjectIds: false;
-            }): import("mongoose").FlattenMaps<any>;
-            (options: import("mongoose").ToObjectOptions & {
-                flattenObjectIds: true;
-            }): {
-                [x: string]: any;
-            };
-            (options: import("mongoose").ToObjectOptions & {
-                flattenMaps: false;
-            }): any;
-            (options: import("mongoose").ToObjectOptions & {
-                flattenMaps: false;
-                flattenObjectIds: true;
-            }): any;
-            <T = any>(options?: import("mongoose").ToObjectOptions & {
-                flattenMaps?: true;
-                flattenObjectIds?: false;
-            }): import("mongoose").FlattenMaps<T>;
-            <T = any>(options: import("mongoose").ToObjectOptions & {
-                flattenObjectIds: false;
-            }): import("mongoose").FlattenMaps<T>;
-            <T = any>(options: import("mongoose").ToObjectOptions & {
-                flattenObjectIds: true;
-            }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
-            <T = any>(options: import("mongoose").ToObjectOptions & {
-                flattenMaps: false;
-            }): T;
-            <T = any>(options: import("mongoose").ToObjectOptions & {
-                flattenMaps: false;
-                flattenObjectIds: true;
-            }): import("mongoose").ObjectIdToString<T>;
-        };
-        toObject: {
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-                virtuals: true;
-                flattenObjectIds: true;
-            }): Omit<any, "__v">;
-            (options: import("mongoose").ToObjectOptions & {
-                virtuals: true;
-                flattenObjectIds: true;
-            }): any;
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-                flattenObjectIds: true;
-            }): Omit<any, "__v">;
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-                virtuals: true;
-            }): Omit<any, "__v">;
-            (options: import("mongoose").ToObjectOptions & {
-                virtuals: true;
-            }): any;
-            (options: import("mongoose").ToObjectOptions & {
-                versionKey: false;
-            }): Omit<any, "__v">;
-            (options: import("mongoose").ToObjectOptions & {
-                flattenObjectIds: true;
-            }): any;
-            (options?: import("mongoose").ToObjectOptions): any;
-            <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
-                __v: number;
-            };
-        };
-        unmarkModified: {
-            <T extends string | number | symbol>(path: T): void;
-            (path: string): void;
-        };
-        updateOne: (update?: import("mongoose").UpdateWithAggregationPipeline | import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerAddress> | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerAddress, {}, unknown, "find", Record<string, never>>;
-        validate: {
-            <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
-            (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
-            (options: {
-                pathsToSkip?: import("mongoose").pathsToSkip;
-            }): Promise<void>;
-        };
-        validateSync: {
-            (options: {
-                pathsToSkip?: import("mongoose").pathsToSkip;
-                [k: string]: any;
-            }): import("mongoose").Error.ValidationError | null;
-            <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-            (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
-        };
-        __v: number;
-    }>;
-    deleteCustomerAddressGraphQL(addressId: string): Promise<string>;
-    getCustomerAddressesGraphQL(customerId: string): Promise<{
+    getCustomerAddresses(customerId: string): Promise<{
         _id: string;
         customerId: string;
         type: import("../schemas/CustomerSchema").AddressType;
@@ -5749,13 +5475,274 @@ export declare class CustomerController {
         };
         __v: number;
     }[]>;
-    verifyCustomerGraphQL(customerId: string): Promise<import("mongoose").FlattenMaps<import("../schemas/CustomerSchema").ICustomer> & Required<{
+    updateCustomerAddress(addressId: string, addressData: Partial<CustomerAddressData>, requestId?: string): Promise<{
+        _id: string;
+        customerId: string;
+        type: import("../schemas/CustomerSchema").AddressType;
+        addressLine1: string;
+        addressLine2?: string;
+        city: string;
+        state: string;
+        postalCode: string;
+        country: string;
+        isDefault: boolean;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        $assertPopulated: <Paths = {}>(path: string | string[], values?: Partial<Paths> | undefined) => Omit<import("../schemas/CustomerSchema").ICustomerAddress, keyof Paths> & Paths;
+        $clearModifiedPaths: () => import("../schemas/CustomerSchema").ICustomerAddress;
+        $clone: () => import("../schemas/CustomerSchema").ICustomerAddress;
+        $createModifiedPathsSnapshot: () => import("mongoose").ModifiedPathsSnapshot;
+        $getAllSubdocs: () => import("mongoose").Document[];
+        $ignore: (path: string) => void;
+        $isDefault: (path?: string) => boolean;
+        $isDeleted: (val?: boolean) => boolean;
+        $getPopulatedDocs: () => import("mongoose").Document[];
+        $inc: (path: string | string[], val?: number) => import("../schemas/CustomerSchema").ICustomerAddress;
+        $isEmpty: (path: string) => boolean;
+        $isValid: (path: string) => boolean;
+        $locals: import("mongoose").FlattenMaps<Record<string, unknown>>;
+        $markValid: (path: string) => void;
+        $model: {
+            <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                _id: import("mongoose").Types.ObjectId;
+            } & {
+                __v: number;
+            }, any>>(name: string): ModelType;
+            <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+        };
+        $op: "save" | "validate" | "remove" | null;
+        $restoreModifiedPathsSnapshot: (snapshot: import("mongoose").ModifiedPathsSnapshot) => import("../schemas/CustomerSchema").ICustomerAddress;
+        $session: (session?: import("mongoose").ClientSession | null) => import("mongoose").ClientSession | null;
+        $set: {
+            (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
+            (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
+            (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerAddress;
+        };
+        $where: import("mongoose").FlattenMaps<Record<string, unknown>>;
+        baseModelName?: string;
+        collection: import("mongoose").FlattenMaps<import("mongoose").Collection<import("bson").Document>>;
+        db: import("mongoose").FlattenMaps<import("mongoose").Connection>;
+        deleteOne: (options?: import("mongoose").QueryOptions) => any;
+        depopulate: <Paths = {}>(path?: string | string[]) => import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>;
+        directModifiedPaths: () => Array<string>;
+        equals: (doc: import("mongoose").Document<unknown, any, any, Record<string, any>, {}>) => boolean;
+        errors?: import("mongoose").Error.ValidationError;
+        get: {
+            <T extends string | number | symbol>(path: T, type?: any, options?: any): any;
+            (path: string, type?: any, options?: any): any;
+        };
+        getChanges: () => import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerAddress>;
+        id: any;
+        increment: () => import("../schemas/CustomerSchema").ICustomerAddress;
+        init: (obj: import("mongoose").AnyObject, opts?: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerAddress;
+        invalidate: {
+            <T extends string | number | symbol>(path: T, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+            (path: string, errorMsg: string | NativeError, value?: any, kind?: string): NativeError | null;
+        };
+        isDirectModified: {
+            <T extends string | number | symbol>(path: T | T[]): boolean;
+            (path: string | Array<string>): boolean;
+        };
+        isDirectSelected: {
+            <T extends string | number | symbol>(path: T): boolean;
+            (path: string): boolean;
+        };
+        isInit: {
+            <T extends string | number | symbol>(path: T): boolean;
+            (path: string): boolean;
+        };
+        isModified: {
+            <T extends string | number | symbol>(path?: T | T[] | undefined, options?: {
+                ignoreAtomics?: boolean;
+            } | null): boolean;
+            (path?: string | Array<string>, options?: {
+                ignoreAtomics?: boolean;
+            } | null): boolean;
+        };
+        isNew: boolean;
+        isSelected: {
+            <T extends string | number | symbol>(path: T): boolean;
+            (path: string): boolean;
+        };
+        markModified: {
+            <T extends string | number | symbol>(path: T, scope?: any): void;
+            (path: string, scope?: any): void;
+        };
+        model: {
+            <ModelType = import("mongoose").Model<unknown, {}, {}, {}, import("mongoose").Document<unknown, {}, unknown, {}, {}> & {
+                _id: import("mongoose").Types.ObjectId;
+            } & {
+                __v: number;
+            }, any>>(name: string): ModelType;
+            <ModelType = import("mongoose").Model<any, {}, {}, {}, any, any>>(): ModelType;
+        };
+        modifiedPaths: (options?: {
+            includeChildren?: boolean;
+        }) => Array<string>;
+        overwrite: (obj: import("mongoose").AnyObject) => import("../schemas/CustomerSchema").ICustomerAddress;
+        $parent: () => import("mongoose").Document | undefined;
+        populate: {
+            <Paths = {}>(path: string | import("mongoose").PopulateOptions | (string | import("mongoose").PopulateOptions)[]): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>>;
+            <Paths = {}>(path: string, select?: string | import("mongoose").AnyObject, model?: import("mongoose").Model<any>, match?: import("mongoose").AnyObject, options?: import("mongoose").PopulateOptions): Promise<import("mongoose").MergeType<import("../schemas/CustomerSchema").ICustomerAddress, Paths>>;
+        };
+        populated: (path: string) => any;
+        replaceOne: (replacement?: import("mongoose").AnyObject, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerAddress, {}, unknown, "find", Record<string, never>>;
+        save: (options?: import("mongoose").SaveOptions) => Promise<import("../schemas/CustomerSchema").ICustomerAddress>;
+        schema: import("mongoose").FlattenMaps<import("mongoose").Schema<any, import("mongoose").Model<any, any, any, any, any, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, {
+            [x: number]: unknown;
+            [x: symbol]: unknown;
+            [x: string]: unknown;
+        }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
+            [x: number]: unknown;
+            [x: symbol]: unknown;
+            [x: string]: unknown;
+        }>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<{
+            [x: number]: unknown;
+            [x: symbol]: unknown;
+            [x: string]: unknown;
+        }> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        }>>;
+        set: {
+            <T extends string | number | symbol>(path: T, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
+            (path: string | Record<string, any>, val: any, type: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
+            (path: string | Record<string, any>, val: any, options?: import("mongoose").DocumentSetOptions): import("../schemas/CustomerSchema").ICustomerAddress;
+            (value: string | Record<string, any>): import("../schemas/CustomerSchema").ICustomerAddress;
+        };
+        toJSON: {
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+                virtuals: true;
+                flattenObjectIds: true;
+            }): Omit<{
+                [x: string]: any;
+            }, "__v">;
+            (options: import("mongoose").ToObjectOptions & {
+                virtuals: true;
+                flattenObjectIds: true;
+            }): {
+                [x: string]: any;
+            };
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+                virtuals: true;
+            }): Omit<any, "__v">;
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+                flattenObjectIds: true;
+            }): {
+                [x: string]: any;
+                [x: number]: any;
+                [x: symbol]: any;
+            };
+            (options: import("mongoose").ToObjectOptions & {
+                virtuals: true;
+            }): any;
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+            }): Omit<any, "__v">;
+            (options?: import("mongoose").ToObjectOptions & {
+                flattenMaps?: true;
+                flattenObjectIds?: false;
+            }): import("mongoose").FlattenMaps<any>;
+            (options: import("mongoose").ToObjectOptions & {
+                flattenObjectIds: false;
+            }): import("mongoose").FlattenMaps<any>;
+            (options: import("mongoose").ToObjectOptions & {
+                flattenObjectIds: true;
+            }): {
+                [x: string]: any;
+            };
+            (options: import("mongoose").ToObjectOptions & {
+                flattenMaps: false;
+            }): any;
+            (options: import("mongoose").ToObjectOptions & {
+                flattenMaps: false;
+                flattenObjectIds: true;
+            }): any;
+            <T = any>(options?: import("mongoose").ToObjectOptions & {
+                flattenMaps?: true;
+                flattenObjectIds?: false;
+            }): import("mongoose").FlattenMaps<T>;
+            <T = any>(options: import("mongoose").ToObjectOptions & {
+                flattenObjectIds: false;
+            }): import("mongoose").FlattenMaps<T>;
+            <T = any>(options: import("mongoose").ToObjectOptions & {
+                flattenObjectIds: true;
+            }): import("mongoose").ObjectIdToString<import("mongoose").FlattenMaps<T>>;
+            <T = any>(options: import("mongoose").ToObjectOptions & {
+                flattenMaps: false;
+            }): T;
+            <T = any>(options: import("mongoose").ToObjectOptions & {
+                flattenMaps: false;
+                flattenObjectIds: true;
+            }): import("mongoose").ObjectIdToString<T>;
+        };
+        toObject: {
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+                virtuals: true;
+                flattenObjectIds: true;
+            }): Omit<any, "__v">;
+            (options: import("mongoose").ToObjectOptions & {
+                virtuals: true;
+                flattenObjectIds: true;
+            }): any;
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+                flattenObjectIds: true;
+            }): Omit<any, "__v">;
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+                virtuals: true;
+            }): Omit<any, "__v">;
+            (options: import("mongoose").ToObjectOptions & {
+                virtuals: true;
+            }): any;
+            (options: import("mongoose").ToObjectOptions & {
+                versionKey: false;
+            }): Omit<any, "__v">;
+            (options: import("mongoose").ToObjectOptions & {
+                flattenObjectIds: true;
+            }): any;
+            (options?: import("mongoose").ToObjectOptions): any;
+            <T>(options?: import("mongoose").ToObjectOptions): import("mongoose").Require_id<T> & {
+                __v: number;
+            };
+        };
+        unmarkModified: {
+            <T extends string | number | symbol>(path: T): void;
+            (path: string): void;
+        };
+        updateOne: (update?: import("mongoose").UpdateWithAggregationPipeline | import("mongoose").UpdateQuery<import("../schemas/CustomerSchema").ICustomerAddress> | undefined, options?: import("mongoose").QueryOptions | null) => import("mongoose").Query<any, import("../schemas/CustomerSchema").ICustomerAddress, {}, unknown, "find", Record<string, never>>;
+        validate: {
+            <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): Promise<void>;
+            (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): Promise<void>;
+            (options: {
+                pathsToSkip?: import("mongoose").pathsToSkip;
+            }): Promise<void>;
+        };
+        validateSync: {
+            (options: {
+                pathsToSkip?: import("mongoose").pathsToSkip;
+                [k: string]: any;
+            }): import("mongoose").Error.ValidationError | null;
+            <T extends string | number | symbol>(pathsToValidate?: T | T[] | undefined, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+            (pathsToValidate?: import("mongoose").pathsToValidate, options?: import("mongoose").AnyObject): import("mongoose").Error.ValidationError | null;
+        };
+        __v: number;
+    }>;
+    deleteCustomerAddress(addressId: string, requestId?: string): Promise<string>;
+    verifyCustomer(customerId: string, requestId?: string): Promise<import("mongoose").FlattenMaps<import("../schemas/CustomerSchema").ICustomer> & Required<{
         _id: string;
     }> & {
         __v: number;
     }>;
-    updateLastLoginGraphQL(customerId: string, ipAddress?: string, userAgent?: string): Promise<boolean>;
-    addLoyaltyPointsGraphQL(customerId: string, input: any): Promise<{
+    updateLastLogin(customerId: string, ipAddress?: string, userAgent?: string, requestId?: string): Promise<boolean>;
+    addLoyaltyPoints(customerId: string, points: number, type: string, description: string, referenceId?: string, requestId?: string): Promise<{
         _id: string;
         customerId: string;
         points: number;
@@ -5778,7 +5765,7 @@ export declare class CustomerController {
         schema: import("mongoose").Schema;
         __v: number;
     }>;
-    redeemLoyaltyPointsGraphQL(customerId: string, input: any): Promise<{
+    redeemLoyaltyPoints(customerId: string, points: number, description: string, referenceId?: string, requestId?: string): Promise<{
         _id: string;
         customerId: string;
         points: number;
@@ -5801,8 +5788,8 @@ export declare class CustomerController {
         schema: import("mongoose").Schema;
         __v: number;
     }>;
-    logCustomerActivityGraphQL(customerId: string, input: any): Promise<boolean>;
-    sendCustomerNotificationGraphQL(customerId: string, input: any): Promise<{
+    logCustomerActivity(customerId: string, activityType: string, description: string, metadata?: any, ipAddress?: string, userAgent?: string, requestId?: string): Promise<boolean>;
+    sendCustomerNotification(customerId: string, type: string, title: string, message: string, metadata?: any, requestId?: string): Promise<{
         _id: string;
         customerId: string;
         type: import("../schemas/CustomerSchema").NotificationType;
@@ -5824,31 +5811,6 @@ export declare class CustomerController {
         schema: import("mongoose").Schema;
         __v: number;
     }>;
-    createCustomerGrpc(call: any, callback: any): Promise<void>;
-    getCustomerByIdGrpc(call: any, callback: any): Promise<void>;
-    getCustomerByEmailGrpc(call: any, callback: any): Promise<void>;
-    updateCustomerGrpc(call: any, callback: any): Promise<void>;
-    deleteCustomerGrpc(call: any, callback: any): Promise<void>;
-    searchCustomersGrpc(call: any, callback: any): Promise<void>;
-    updateCustomerProfileGrpc(call: any, callback: any): Promise<void>;
-    updateCustomerPreferencesGrpc(call: any, callback: any): Promise<void>;
-    addCustomerAddressGrpc(call: any, callback: any): Promise<void>;
-    updateCustomerAddressGrpc(call: any, callback: any): Promise<void>;
-    deleteCustomerAddressGrpc(call: any, callback: any): Promise<void>;
-    getCustomerAddressesGrpc(call: any, callback: any): Promise<void>;
-    verifyCustomerGrpc(call: any, callback: any): Promise<void>;
-    updateLastLoginGrpc(call: any, callback: any): Promise<void>;
-    getCustomerStatsGrpc(_call: any, callback: any): Promise<void>;
-    addLoyaltyPointsGrpc(call: any, callback: any): Promise<void>;
-    redeemLoyaltyPointsGrpc(call: any, callback: any): Promise<void>;
-    logCustomerActivityGrpc(call: any, callback: any): Promise<void>;
-    sendCustomerNotificationGrpc(call: any, callback: any): Promise<void>;
-    private mapCustomerToProto;
-    private mapCustomerProfileToProto;
-    private mapCustomerPreferencesToProto;
-    private mapCustomerAddressToProto;
-    private mapCustomerLoyaltyPointToProto;
-    private mapCustomerNotificationToProto;
 }
-export default CustomerController;
-//# sourceMappingURL=CustomerController.d.ts.map
+export default CustomerBusinessService;
+//# sourceMappingURL=CustomerBusinessService.d.ts.map

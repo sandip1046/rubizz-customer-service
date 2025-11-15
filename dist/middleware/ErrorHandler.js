@@ -1,7 +1,11 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ErrorHandler = void 0;
 const rubizz_shared_libs_1 = require("@sandip1046/rubizz-shared-libs");
+const mongoose_1 = __importDefault(require("mongoose"));
 class ErrorHandler {
     static notFound(req, _res, next) {
         const error = new Error(`Not Found - ${req.originalUrl}`);
@@ -14,20 +18,30 @@ class ErrorHandler {
         let message = error.message || 'Internal Server Error';
         let code = error.code || 'INTERNAL_ERROR';
         ErrorHandler.logger.error('Error occurred:', error);
-        if (error.name === 'ValidationError') {
+        if (error instanceof mongoose_1.default.Error.ValidationError) {
             statusCode = 400;
             message = 'Validation Error';
             code = 'VALIDATION_ERROR';
+            const validationErrors = Object.values(error.errors).map((err) => err.message);
+            if (validationErrors.length > 0) {
+                message = validationErrors.join(', ');
+            }
         }
-        if (error.name === 'CastError') {
+        if (error instanceof mongoose_1.default.Error.CastError || error.name === 'CastError') {
             statusCode = 400;
-            message = 'Invalid ID format';
+            message = `Invalid ${error.path || 'ID'} format`;
             code = 'INVALID_ID';
         }
-        if (error.name === 'MongoError' && error.code === 11000) {
-            statusCode = 400;
-            message = 'Duplicate field value';
+        if (error.code === 11000 || error.name === 'MongoServerError') {
+            statusCode = 409;
+            const duplicateField = Object.keys(error.keyPattern || {})[0] || 'field';
+            message = `Duplicate ${duplicateField} value`;
             code = 'DUPLICATE_FIELD';
+        }
+        if (error.name === 'DocumentNotFoundError' || error.name === 'DocumentNotFoundError') {
+            statusCode = 404;
+            message = 'Resource not found';
+            code = 'NOT_FOUND';
         }
         if (error.name === 'JsonWebTokenError') {
             statusCode = 401;
@@ -39,34 +53,15 @@ class ErrorHandler {
             message = 'Token expired';
             code = 'TOKEN_EXPIRED';
         }
-        if (error.name === 'PrismaClientKnownRequestError') {
-            const prismaError = error;
-            switch (prismaError.code) {
-                case 'P2002':
-                    statusCode = 400;
-                    message = 'Unique constraint violation';
-                    code = 'UNIQUE_CONSTRAINT_VIOLATION';
-                    break;
-                case 'P2025':
-                    statusCode = 404;
-                    message = 'Record not found';
-                    code = 'RECORD_NOT_FOUND';
-                    break;
-                case 'P2003':
-                    statusCode = 400;
-                    message = 'Foreign key constraint violation';
-                    code = 'FOREIGN_KEY_CONSTRAINT_VIOLATION';
-                    break;
-                default:
-                    statusCode = 400;
-                    message = 'Database error';
-                    code = 'DATABASE_ERROR';
-            }
+        if (error.name === 'MongoNetworkError' || error.name === 'MongoTimeoutError') {
+            statusCode = 503;
+            message = 'Database connection error';
+            code = 'DATABASE_CONNECTION_ERROR';
         }
-        if (error.name === 'PrismaClientValidationError') {
-            statusCode = 400;
-            message = 'Database validation error';
-            code = 'DATABASE_VALIDATION_ERROR';
+        if (error.name === 'MongoError' && !error.code) {
+            statusCode = 500;
+            message = 'Database error';
+            code = 'DATABASE_ERROR';
         }
         if (process.env['NODE_ENV'] === 'production' && !error.isOperational) {
             message = 'Something went wrong';

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { Logger } from '@sandip1046/rubizz-shared-libs';
+import mongoose from 'mongoose';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -27,25 +28,44 @@ export class ErrorHandler {
     // Log error
     ErrorHandler.logger.error('Error occurred:', error as Error);
 
-    // Handle specific error types
-    if (error.name === 'ValidationError') {
+    // Handle Mongoose ValidationError
+    if (error instanceof mongoose.Error.ValidationError) {
       statusCode = 400;
       message = 'Validation Error';
       code = 'VALIDATION_ERROR';
+      
+      // Extract validation error details
+      const validationErrors = Object.values((error as mongoose.Error.ValidationError).errors).map(
+        (err: any) => err.message
+      );
+      if (validationErrors.length > 0) {
+        message = validationErrors.join(', ');
+      }
     }
 
-    if (error.name === 'CastError') {
+    // Handle Mongoose CastError (Invalid ID format)
+    if (error instanceof mongoose.Error.CastError || error.name === 'CastError') {
       statusCode = 400;
-      message = 'Invalid ID format';
+      message = `Invalid ${(error as mongoose.Error.CastError).path || 'ID'} format`;
       code = 'INVALID_ID';
     }
 
-    if (error.name === 'MongoError' && (error as any).code === 11000) {
-      statusCode = 400;
-      message = 'Duplicate field value';
+    // Handle MongoDB duplicate key error
+    if ((error as any).code === 11000 || error.name === 'MongoServerError') {
+      statusCode = 409;
+      const duplicateField = Object.keys((error as any).keyPattern || {})[0] || 'field';
+      message = `Duplicate ${duplicateField} value`;
       code = 'DUPLICATE_FIELD';
     }
 
+    // Handle Mongoose DocumentNotFoundError
+    if (error.name === 'DocumentNotFoundError' || (error as any).name === 'DocumentNotFoundError') {
+      statusCode = 404;
+      message = 'Resource not found';
+      code = 'NOT_FOUND';
+    }
+
+    // Handle JWT errors
     if (error.name === 'JsonWebTokenError') {
       statusCode = 401;
       message = 'Invalid token';
@@ -58,36 +78,18 @@ export class ErrorHandler {
       code = 'TOKEN_EXPIRED';
     }
 
-    if (error.name === 'PrismaClientKnownRequestError') {
-      const prismaError = error as any;
-      
-      switch (prismaError.code) {
-        case 'P2002':
-          statusCode = 400;
-          message = 'Unique constraint violation';
-          code = 'UNIQUE_CONSTRAINT_VIOLATION';
-          break;
-        case 'P2025':
-          statusCode = 404;
-          message = 'Record not found';
-          code = 'RECORD_NOT_FOUND';
-          break;
-        case 'P2003':
-          statusCode = 400;
-          message = 'Foreign key constraint violation';
-          code = 'FOREIGN_KEY_CONSTRAINT_VIOLATION';
-          break;
-        default:
-          statusCode = 400;
-          message = 'Database error';
-          code = 'DATABASE_ERROR';
-      }
+    // Handle MongoDB connection errors
+    if (error.name === 'MongoNetworkError' || error.name === 'MongoTimeoutError') {
+      statusCode = 503;
+      message = 'Database connection error';
+      code = 'DATABASE_CONNECTION_ERROR';
     }
 
-    if (error.name === 'PrismaClientValidationError') {
-      statusCode = 400;
-      message = 'Database validation error';
-      code = 'DATABASE_VALIDATION_ERROR';
+    // Handle general MongoDB errors
+    if (error.name === 'MongoError' && !(error as any).code) {
+      statusCode = 500;
+      message = 'Database error';
+      code = 'DATABASE_ERROR';
     }
 
     // Don't leak error details in production
